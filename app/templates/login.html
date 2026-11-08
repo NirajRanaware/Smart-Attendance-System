@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Administrator Login &bull; Smart Attendance Management System</title>
+
+    <!-- Core Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+<body class="auth-body">
+    <div class="auth-wrapper">
+        <div class="auth-card" id="auth-card">
+            <!-- Brand Header -->
+            <div class="auth-header">
+                <div class="auth-brand-logo">
+                    <span class="auth-logo-icon">&#x1F4E1;</span>
+                </div>
+                <h1 class="auth-title">Smart Attendance System</h1>
+                <p class="auth-subtitle">IoT-Based Campus Attendance &bull; Administrator Portal</p>
+            </div>
+
+            <!-- Error Feedback Box -->
+            <div class="auth-alert" id="auth-alert" style="display: {% if error %}flex{% else %}none{% endif %};">
+                <span class="auth-alert-icon">&#x26A0;&#xFE0F;</span>
+                <span class="auth-alert-text" id="auth-alert-text">{{ error or '' }}</span>
+            </div>
+
+            <!-- Login Form -->
+            <form action="{{ url_for('auth.login') }}" method="POST" class="auth-form" id="login-form" novalidate>
+                <input type="hidden" name="csrf_token" id="csrf-token-input" value="{{ csrf_token() }}">
+                <input type="hidden" name="next" id="next-url-input" value="{{ next or '' }}">
+
+                <!-- Username Field -->
+                <div class="form-group">
+                    <label for="username" class="form-label">Administrator Username</label>
+                    <div class="input-with-icon">
+                        <span class="input-icon">&#x1F464;</span>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="form-input"
+                            placeholder="Enter username"
+                            autocomplete="username"
+                            autofocus
+                            required
+                        >
+                    </div>
+                    <span class="form-error" id="username-error"></span>
+                </div>
+
+                <!-- Password Field with Show/Hide Toggle -->
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-with-icon password-input-group">
+                        <span class="input-icon">&#x1F512;</span>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="Enter password"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <button
+                            type="button"
+                            class="btn-toggle-password"
+                            id="btn-toggle-password"
+                            title="Toggle password visibility"
+                            aria-label="Toggle password visibility"
+                        >
+                            <span class="eye-icon" id="eye-icon">&#x1F441;</span>
+                        </button>
+                    </div>
+                    <span class="form-error" id="password-error"></span>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary btn-block btn-login" id="btn-login">
+                    <span class="btn-login-spinner" id="btn-login-spinner" style="display: none;">&#x231B;</span>
+                    <span class="btn-login-text" id="btn-login-text">Sign In</span>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <div class="auth-footer-badge">
+                    <span class="security-lock-icon">&#x1F510;</span>
+                    <span>Single-Admin Authentication &bull; Local SQLite Security</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+</body>
+</html>

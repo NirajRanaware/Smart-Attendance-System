@@ -1,0 +1,41 @@
+# Virtual Environment
+.venv/
+venv/
+
+# Python Cache & Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing Cache
+.pytest_cache/
+
+# Environment Variables & Secrets
+.env
+
+# Credentials & Service Account Keys (targeted exclusions)
+credentials/
+credentials/*.json
+service_account.json
+service_account*.json
+*service_account*.json
+
+# SQLite Database files (generated during runtime)
+*.db
+*.sqlite3
+# Local database backups and runtime files
+backups/
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Coverage reports
+.coverage
+.coverage.*
+
+# Local environment files
+.env.*
+!.env.example

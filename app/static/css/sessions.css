@@ -1,0 +1,603 @@
+/**
+ * Smart Attendance Management System - Class Sessions Stylesheet (sessions.css)
+ * Active Session Banner, Creation Form, Session Roster Table, and Activation Controls.
+ */
+
+.sessions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ==============================================================================
+   PAGE HEADER BANNER
+   ============================================================================== */
+.sessions-header-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    padding: 20px 24px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    gap: 16px;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.header-badge-row {
+    margin-top: 4px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* ==============================================================================
+   PROMINENT ACTIVE SESSION HERO CARD
+   ============================================================================== */
+.active-session-hero {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-left: 5px solid #cbd5e1;
+    border-radius: var(--border-radius);
+    padding: 22px 26px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    transition: all var(--transition-normal);
+}
+
+.active-session-hero.is-active {
+    border-left-color: var(--color-success);
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+}
+
+.hero-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.hero-icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--border-radius);
+    background-color: #f1f5f9;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.active-session-hero.is-active .hero-icon-box {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.hero-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.hero-meta-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hero-course-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--color-text-main);
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.hero-info-pills {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    flex-wrap: wrap;
+}
+
+.hero-info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hero-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* ==============================================================================
+   PAGE LAYOUT: TWO-COLUMN (CREATE SESSION & ROSTER LIST)
+   ============================================================================== */
+.sessions-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+/* Create Session Card */
+.create-session-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.create-session-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    background-color: #ffffff;
+}
+
+.create-session-card .card-body {
+    padding: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 6px;
+}
+
+.form-label .required {
+    color: #dc2626;
+    margin-left: 2px;
+}
+
+.form-input {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background-color: #ffffff;
+    color: var(--color-text-main);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary-light);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.form-hint {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.form-actions .btn {
+    flex: 1;
+}
+
+/* Form Alert Banner */
+.form-alert {
+    padding: 12px 14px;
+    border-radius: var(--border-radius-sm);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.form-alert.alert-error {
+    background-color: var(--color-danger-bg);
+    border: 1px solid var(--color-danger-border);
+    color: #991b1b;
+}
+
+.form-alert.alert-success {
+    background-color: var(--color-success-bg);
+    border: 1px solid var(--color-success-border);
+    color: #065f46;
+}
+
+/* ==============================================================================
+   SESSION ROSTER CARD & TABLE
+   ============================================================================== */
+.session-roster-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.session-roster-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Table Toolbar */
+.table-toolbar {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    background-color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.search-box-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 240px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 36px 8px 34px;
+    font-size: 13px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background-color: #ffffff;
+    color: var(--color-text-main);
+    transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--color-primary-light);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.btn-clear-search {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 50%;
+    line-height: 1;
+}
+
+.btn-clear-search:hover {
+    color: #475569;
+    background-color: #f1f5f9;
+}
+
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.filter-select {
+    font-size: 13px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background-color: #ffffff;
+    color: var(--color-text-main);
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--color-primary-light);
+}
+
+/* Data Table */
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: #f8fafc;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-main);
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    transition: background-color var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.row-active-session {
+    background-color: #f0fdf4 !important;
+}
+
+.row-active-session:hover {
+    background-color: #dcfce7 !important;
+}
+
+.cell-course {
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.cell-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.cell-actions {
+    white-space: nowrap;
+}
+
+.btn-activate {
+    background-color: var(--color-primary-light);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-activate:hover:not(:disabled) {
+    background-color: #2563eb;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btn-deactivate {
+    background-color: #ffffff;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid #fecaca;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-deactivate:hover:not(:disabled) {
+    background-color: #fef2f2;
+    border-color: #dc2626;
+}
+
+.btn-action-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Empty and Error States */
+.table-state-box {
+    padding: 40px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-state-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+    color: #94a3b8;
+}
+
+.table-state-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin-bottom: 4px;
+}
+
+.table-state-desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    max-width: 380px;
+    line-height: 1.4;
+}
+
+/* ==============================================================================
+   RESPONSIVE DESIGN BREAKPOINTS
+   ============================================================================== */
+@media (min-width: 1440px) {
+    .sessions-layout {
+        grid-template-columns: 420px 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .sessions-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .sessions-header-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .active-session-hero {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 20px;
+        gap: 16px;
+    }
+
+    .hero-right {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .hero-right .btn-deactivate {
+        width: 100%;
+        justify-content: center;
+        min-height: 40px;
+    }
+
+    .table-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .filter-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .filter-select {
+        flex: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .sessions-header-card {
+        padding: 16px 14px;
+    }
+
+    .header-actions {
+        flex-direction: column;
+    }
+
+    .header-actions .btn {
+        width: 100%;
+    }
+
+    .hero-course-title {
+        font-size: 17px;
+    }
+
+    .hero-info-pills {
+        gap: 8px;
+        font-size: 12px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 320px) {
+    .page-title {
+        font-size: 18px;
+    }
+
+    .hero-left {
+        gap: 12px;
+    }
+
+    .hero-icon-box {
+        width: 42px;
+        height: 42px;
+        font-size: 20px;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

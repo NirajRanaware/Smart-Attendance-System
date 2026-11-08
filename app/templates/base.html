@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Smart Attendance Management System{% endblock %}</title>
+
+    <!-- Core Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo">
+                    <span class="logo-icon">&#x1F4E1;</span>
+                    <div class="brand-text">
+                        <span class="brand-title">Smart Attendance</span>
+                        <span class="brand-subtitle">IoT Campus System</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">MAIN NAVIGATION</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.dashboard_view') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" id="nav-dashboard">
+                            <span class="nav-icon">&#x1F4CA;</span>
+                            <span class="nav-label">Dashboard Overview</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.students_view') }}" class="nav-link {% if active_page == 'students' %}active{% endif %}" id="nav-students">
+                            <span class="nav-icon">&#x1F393;</span>
+                            <span class="nav-label">Student Management</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.sessions_view') }}" class="nav-link {% if active_page == 'sessions' %}active{% endif %}" id="nav-sessions">
+                            <span class="nav-icon">&#x1F4C5;</span>
+                            <span class="nav-label">Class Sessions</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.attendance_view') }}" class="nav-link {% if active_page == 'attendance' %}active{% endif %}" id="nav-attendance">
+                            <span class="nav-icon">&#x1F4F6;</span>
+                            <span class="nav-label">Live Attendance</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.reports_view') }}" class="nav-link {% if active_page == 'reports' %}active{% endif %}" id="nav-reports">
+                            <span class="nav-icon">&#x1F4C8;</span>
+                            <span class="nav-label">Attendance Reports</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-label">SYSTEM & CONFIG</div>
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="{{ url_for('views.settings_view') }}" class="nav-link {% if active_page == 'settings' %}active{% endif %}" id="nav-settings">
+                            <span class="nav-icon">&#x2699;&#xFE0F;</span>
+                            <span class="nav-label">Settings & Admin</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-widget">
+                    <div class="status-indicator">
+                        <span class="status-dot status-dot-active" id="sidebar-db-dot"></span>
+                        <span class="status-text" id="sidebar-db-status">SQLite: Checking...</span>
+                    </div>
+                    <div class="version-tag">Phase 2 &bull; v2.0-dev</div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Mobile Navigation Backdrop Overlay -->
+        <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+        <!-- Main Workspace Area -->
+        <div class="main-content">
+            <!-- Top Navigation Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="btn-icon mobile-menu-toggle" id="mobile-menu-btn" title="Toggle Navigation" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar">
+                        <span class="menu-icon" aria-hidden="true">&#9776;</span>
+                    </button>
+                    <div class="breadcrumb">
+                        <span class="breadcrumb-root">Portal</span>
+                        <span class="breadcrumb-separator">/</span>
+                        <span class="breadcrumb-current">{% block breadcrumb %}Overview{% endblock %}</span>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Active Session Pill -->
+                    <div class="active-session-pill" id="topbar-session-pill" title="Current Active Session">
+                        <span class="session-pulse-dot"></span>
+                        <span class="session-pill-text" id="topbar-session-text">Checking active session...</span>
+                    </div>
+
+                    <!-- Server Health Pill -->
+                    <div class="health-badge" id="topbar-health-badge" title="Flask Backend & Database Status">
+                        <span class="health-dot" id="topbar-health-dot"></span>
+                        <span class="health-text" id="topbar-health-text">API: Connecting</span>
+                    </div>
+
+                    <!-- Current Date / Time -->
+                    <div class="clock-display" id="live-clock" title="Current System Time">
+                        --:--:--
+                    </div>
+
+                    <!-- Admin Profile Widget -->
+                    <div class="admin-profile" title="Administrator Profile">
+                        <div class="avatar-circle">{{ (current_admin.username[0]|upper) if (current_admin and current_admin.username) else 'A' }}</div>
+                        <span class="admin-name" id="topbar-admin-name">{{ current_admin.username if (current_admin and current_admin.username) else 'Admin' }}</span>
+                    </div>
+
+                    <!-- Administrator Logout Form (POST-only with CSRF) -->
+                    <form action="{{ url_for('auth.logout') }}" method="POST" class="logout-form" id="topbar-logout-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-topbar-logout" id="btn-topbar-logout" title="Log out of administrator session">
+                            <span class="logout-icon">&#x23FB;</span>
+                            <span class="logout-text">Logout</span>
+                        </button>
+                    </form>
+                </div>
+            </header>
+
+            <!-- Page Body Container -->
+            <main class="page-body">
+                {% block content %}{% endblock %}
+            </main>
+
+            <!-- Global Footer -->
+            <footer class="app-footer">
+                <div class="footer-left">
+                    <span>IoT-Based Smart Attendance Management System &bull; College Engineering Project</span>
+                </div>
+                <div class="footer-right">
+                    <span>Primary Database: SQLite 3 (Local ACID)</span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- Core Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

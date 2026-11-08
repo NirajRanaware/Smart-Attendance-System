@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Settings &amp; Admin &bull; Smart Attendance Management System{% endblock %}
+{% block breadcrumb %}Settings &amp; Admin{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Header Banner -->
+    <section class="settings-header-card">
+        <div class="header-info">
+            <h1 class="page-title">Settings &amp; Admin</h1>
+            <p class="page-subtitle">System configuration, security settings, and database administration.</p>
+            <div class="header-badge-row">
+                <span class="badge badge-info" id="settings-module-badge">
+                    Settings &amp; Admin &bull; System Configuration &amp; Administration &bull; Milestone 6 &bull; Post-Phase-2 Database Management
+                </span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-stats" title="Refresh Live Database Statistics">
+                <span class="btn-icon">&#x21BB;</span> Refresh Statistics
+            </button>
+        </div>
+    </section>
+
+    <!-- Admin & System Environment Cards -->
+    <div class="settings-grid-2">
+        <!-- Card 1: Administrator Profile -->
+        <section class="settings-card" id="card-admin-profile">
+            <div class="card-header">
+                <h2 class="card-title">&#x1F464; Administrator Profile</h2>
+                <span class="badge badge-success">Authenticated</span>
+            </div>
+            <div class="card-body">
+                <div class="info-list">
+                    <div class="info-row">
+                        <span class="info-label">Current Username:</span>
+                        <span class="info-value font-mono" id="admin-info-username">{{ current_admin.username if current_admin else 'Admin' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Access Role:</span>
+                        <span class="info-value font-mono" id="admin-info-role">{{ current_admin.role if current_admin else 'admin' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Session Protection:</span>
+                        <span class="info-value text-success">&#x1F512; HttpOnly &bull; SameSite=Lax &bull; CSRF Active</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Authentication Engine:</span>
+                        <span class="info-value">Werkzeug Secure Password Hashing</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Card 2: System Environment -->
+        <section class="settings-card" id="card-system-env">
+            <div class="card-header">
+                <h2 class="card-title">&#x2699;&#xFE0F; System Environment</h2>
+                <span class="badge badge-info">Operational</span>
+            </div>
+            <div class="card-body">
+                <div class="info-list">
+                    <div class="info-row">
+                        <span class="info-label">Timezone:</span>
+                        <span class="info-value font-mono">Asia/Kolkata (+05:30 IST)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Storage Engine:</span>
+                        <span class="info-value">SQLite 3 (ACID Local Storage)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Foreign Keys:</span>
+                        <span class="info-value text-success">&#x2714; Enforced (PRAGMA foreign_keys = ON)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Auto-Deactivation:</span>
+                        <span class="info-value text-success">&#x2714; Background Scheduler Active</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Database Management Section -->
+    <section class="database-management-section" id="database-management-section">
+        <div class="section-header-row">
+            <div>
+                <h2 class="section-title">&#x1F4BE; Database Management &amp; Statistics</h2>
+                <p class="section-subtitle">Real-time database statistics and operational data maintenance.</p>
+            </div>
+            <div class="db-location-badge" id="db-location-badge">
+                <span class="db-pill-label">Database File:</span>
+                <span class="db-pill-path font-mono" id="stat-db-path">Loading...</span>
+            </div>
+        </div>
+
+        <!-- 4 Database Metric Cards -->
+        <div class="stats-grid-4">
+            <!-- Metric 1: Total Registered Students -->
+            <div class="stat-card" id="card-stat-db-students">
+                <div class="stat-content">
+                    <span class="stat-title">REGISTERED STUDENTS</span>
+                    <span class="stat-value" id="stat-db-students">--</span>
+                    <span class="stat-subtext">Total enrollment records</span>
+                </div>
+                <div class="stat-icon-badge stat-icon-students">&#x1F393;</div>
+            </div>
+
+            <!-- Metric 2: Active Students -->
+            <div class="stat-card" id="card-stat-db-active">
+                <div class="stat-content">
+                    <span class="stat-title">ACTIVE ROSTER</span>
+                    <span class="stat-value text-success" id="stat-db-active-students">--</span>
+                    <span class="stat-subtext">Eligible for attendance</span>
+                </div>
+                <div class="stat-icon-badge stat-icon-active">&#x2705;</div>
+            </div>
+
+            <!-- Metric 3: Total Class Sessions -->
+            <div class="stat-card" id="card-stat-db-sessions">
+                <div class="stat-content">
+                    <span class="stat-title">CLASS SESSIONS</span>
+                    <span class="stat-value" id="stat-db-sessions">--</span>
+                    <span class="stat-subtext">Logged lecture sessions</span>
+                </div>
+                <div class="stat-icon-badge stat-icon-sessions">&#x1F4C5;</div>
+            </div>
+
+            <!-- Metric 4: Total Attendance Records -->
+            <div class="stat-card" id="card-stat-db-attendance">
+                <div class="stat-content">
+                    <span class="stat-title">ATTENDANCE LOGS</span>
+                    <span class="stat-value text-info" id="stat-db-attendance">--</span>
+                    <span class="stat-subtext">Total verified scans</span>
+                </div>
+                <div class="stat-icon-badge stat-icon-attendance">&#x1F4F6;</div>
+            </div>
+        </div>
+
+        <!-- Danger Zone Card: Clear All Test Data -->
+        <div class="danger-zone-card" id="danger-zone-card">
+            <div class="danger-zone-content">
+                <div class="danger-icon-col">
+                    <span class="danger-icon">&#x26A0;&#xFE0F;</span>
+                </div>
+                <div class="danger-text-col">
+                    <h3 class="danger-title">Danger Zone: Clear Operational Test Data</h3>
+                    <p class="danger-description">
+                        Permanently clear all student enrollments, class sessions, and live attendance logs. 
+                        <strong>A verified timestamped database backup is automatically created</strong> in the <code>backups/</code> directory before any data is deleted.
+                        Administrator accounts, credentials, and database schemas are strictly preserved.
+                    </p>
+                </div>
+                <div class="danger-action-col">
+                    <button type="button" class="btn btn-danger" id="btn-open-clear-modal" title="Open Clear All Test Data confirmation dialog">
+                        <span class="btn-icon">&#x1F5D1;&#xFE0F;</span> Clear All Test Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Clear Data Confirmation Modal Dialog -->
+<div class="modal-backdrop" id="modal-clear-backdrop" style="display: none;" aria-hidden="true">
+    <div class="modal-dialog modal-danger" role="dialog" aria-modal="true" aria-labelledby="modal-clear-title">
+        <div class="modal-header">
+            <div class="modal-title-row">
+                <span class="modal-danger-icon">&#x26A0;&#xFE0F;</span>
+                <h3 class="modal-title" id="modal-clear-title">Clear All Operational Test Data</h3>
+            </div>
+            <button type="button" class="modal-close-btn" id="btn-close-modal" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="modal-alert modal-alert-danger">
+                <strong>Warning:</strong> This operation will permanently remove test records from the database. 
+                Before deletion begins, an ACID-safe SQLite backup will be verified and saved.
+            </div>
+
+            <div class="data-impact-grid">
+                <!-- Permanently Deleted -->
+                <div class="impact-box impact-deleted">
+                    <h4 class="impact-heading text-danger">&#x274C; Permanently Deleted:</h4>
+                    <ul class="impact-list">
+                        <li>All registered students (<code>students</code> table)</li>
+                        <li>All class sessions (<code>class_sessions</code> table)</li>
+                        <li>All attendance scan records (<code>attendance</code> table)</li>
+                    </ul>
+                </div>
+
+                <!-- Strictly Preserved -->
+                <div class="impact-box impact-preserved">
+                    <h4 class="impact-heading text-success">&#x2705; Strictly Preserved:</h4>
+                    <ul class="impact-list">
+                        <li>Administrator accounts &amp; hashed credentials (<code>admin_users</code>)</li>
+                        <li>All database tables, constraints &amp; indexes</li>
+                        <li>Application configuration &amp; active admin session</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="confirmation-input-section">
+                <label for="clear-data-confirmation-input" class="form-label">
+                    To confirm, please type <span class="confirm-phrase-highlight font-mono">DELETE ALL DATA</span> below:
+                </label>
+                <input 
+                    type="text" 
+                    id="clear-data-confirmation-input" 
+                    class="form-input form-input-danger font-mono" 
+                    placeholder="Type DELETE ALL DATA to confirm" 
+                    autocomplete="off" 
+                    spellcheck="false"
+                >
+                <span class="form-hint" id="phrase-validation-hint">Type the exact phrase above to enable the confirmation button.</span>
+            </div>
+
+            <!-- Error Banner in Modal -->
+            <div class="modal-error-banner" id="modal-error-banner" style="display: none;">
+                <span class="error-icon">&#x26A0;&#xFE0F;</span>
+                <span class="error-text" id="modal-error-text"></span>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-clear">Cancel</button>
+            <button type="button" class="btn btn-danger" id="btn-confirm-clear" disabled>
+                <span class="btn-icon" id="confirm-btn-icon">&#x1F5D1;&#xFE0F;</span>
+                <span id="confirm-btn-text">Permanently Clear Data</span>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,152 @@
+<USER_REQUEST>
+# PHASE 3 — MILESTONE 5
+## RETRY, DUPLICATE PREVENTION & FAILURE HANDLING
+
+**Project:** IoT-Based Smart Attendance Management System
+
+**Workspace:**
+`C:\Users\niraj\Downloads\Smart-Attendance-System`
+
+**Environment:**
+- Windows 11
+- Python 3.10.11
+- Flask 3.1.3
+- SQLite
+- Google Sheets API
+- Pytest
+
+---
+
+# 1. OBJECTIVE
+
+Implement and verify additional reliability improvements for the Google Sheets synchronization pipeline.
+
+The primary objective is to ensure:
+
+1. No attendance record is lost.
+2. Temporary Google API failures are handled safely.
+3. Duplicate attendance rows are prevented.
+4. Interrupted synchronization can recover automatically.
+5. Permanently failed records remain identifiable.
+6. Administrators can investigate synchronization failures.
+7. Attendance scanning continues independently of Google Sheets availability.
+
+SQLite must remain the authoritative attendance database.
+
+Google Sheets must remain the secondary synchronized reporting destination.
+
+# 2. FIRST: INSPECT EXISTING IMPLEMENTATION
+
+Before changing anything, inspect:
+
+- `app/services/sheets_worker.py`
+- `app/services/sheets_outbox.py`
+- `app/services/google_sheets.py`
+- `app/routes/admin.py`
+- `app/cli.py`
+- `app/database.py`
+- `app/routes/attendance.py`
+- `tests/test_sheets_worker.py`
+- Existing synchronization-related tests.
+
+Also inspect:
+
+- `PHASE_3_MILESTONE_2_COMPLETION_REPORT.md`
+- `PHASE_3_MILESTONE_4_COMPLETION_REPORT.md`
+- `PHASE_3_MILESTONE_4_FINAL_AUDIT_REPORT.md`
+
+Identify which reliability features are already implemented and tested.
+
+**Do not rewrite existing working functionality.**
+
+Implement only missing improvements or verified defects.
+
+# 3. RETRY AND FAILURE HANDLING
+
+Verify the established retry policy:
+
+| Parameter | Required value |
+|---|---|
+| Base delay | 15 seconds |
+| Exponential multiplier | 2 |
+| Jitter | ±10% |
+| Maximum delay | 900 seconds |
+| Maximum retry attempts | 5 |
+
+Test these scenarios:
+
+- Google API timeo
+<truncated 3328 bytes>
+ired lease recovery.
+- Multiple worker safety.
+- Permanent error handling.
+- Administrative dead-letter recovery, if implemented.
+- Attendance preservation during failures.
+
+Run:
+
+1. Relevant targeted tests.
+2. Complete synchronization test suite.
+3. Full project regression suite.
+
+Do not remove or weaken existing tests.
+
+# 9. LIVE GOOGLE SHEETS RESTRICTION
+
+Automated tests must use mocked Google API services.
+
+Do not make real Google Sheets writes or modify the user's spreadsheet without explicit authorization.
+
+Do not request private service-account keys in ChatGPT.
+
+Clearly distinguish mocked verification from actual live cloud synchronization.
+
+# 10. FINAL COMPLETION REPORT
+
+Create:
+
+`PHASE_3_MILESTONE_5_COMPLETION_REPORT.md`
+
+Include:
+
+1. Executive summary.
+2. Existing functionality inspected.
+3. New improvements implemented.
+4. Retry and error-handling verification.
+5. Duplicate-prevention verification.
+6. Crash and recovery verification.
+7. Dead-letter management.
+8. SQLite safety verification.
+9. Automated test results.
+10. Files created or modified.
+11. Remaining limitations.
+12. Final milestone status.
+
+Use evidence from actual code and test execution.
+
+# 11. STRICT STOP CONDITIONS
+
+- Do not begin Phase 3 Milestone 6.
+- Do not begin hardware integration.
+- Do not modify the approved attendance architecture.
+- Do not replace SQLite with Google Sheets.
+- Do not bypass the SQLite Outbox.
+- Do not modify unrelated frontend functionality.
+- Do not clear or reset the development database.
+- Do not delete existing attendance records.
+- Do not expose credentials.
+- Do not invent test results.
+
+After completing Milestone 5:
+
+1. Generate the completion report.
+2. Display the report.
+3. Summarize all test results.
+4. List any outstanding issues.
+5. STOP and wait for user review.
+
+**Do not proceed to the next milestone automatically.**
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-11-08T19:50:13+05:30.
+</ADDITIONAL_METADATA>

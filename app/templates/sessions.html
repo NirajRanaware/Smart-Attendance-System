@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Class Sessions &bull; Smart Attendance Management System{% endblock %}
+{% block breadcrumb %}Class Sessions{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sessions.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="sessions-container">
+    <!-- Header Banner -->
+    <section class="sessions-header-card">
+        <div class="header-info">
+            <h1 class="page-title">Class Session Management</h1>
+            <p class="page-subtitle">Create, monitor and manage classroom sessions.</p>
+            <div class="header-badge-row">
+                <span class="badge badge-info" id="session-module-badge">Class Sessions &amp; Lecture Management (Phase 2 &bull; Milestone 3 Foundation &bull; Milestone 4 Interface)</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary btn-sm" id="btn-scroll-to-create" title="Scroll to Session Creation Form">
+                <span class="btn-icon">&#x2795;</span> Create Session
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-sessions" title="Refresh Session Roster">
+                <span class="btn-icon">&#x21BB;</span> Refresh Sessions
+            </button>
+        </div>
+    </section>
+
+    <!-- Prominent Active Session Hero Card -->
+    <section class="active-session-hero" id="active-session-card">
+        <div class="hero-left">
+            <div class="hero-icon-box" id="active-hero-icon">&#x1F4C5;</div>
+            <div class="hero-details">
+                <div class="hero-meta-label">
+                    <span class="status-dot" id="active-dot"></span>
+                    <span id="active-status-label">CURRENT ACTIVE SESSION</span>
+                </div>
+                <h2 class="hero-course-title" id="active-course-name">Checking Active Session...</h2>
+                <div class="hero-info-pills">
+                    <span class="hero-info-item" id="active-date-container">
+                        <span class="info-icon">&#x1F4C5;</span>
+                        <span id="active-session-date">--</span>
+                    </span>
+                    <span class="hero-info-item" id="active-time-container">
+                        <span class="info-icon">&#x23F0;</span>
+                        <span id="active-start-time">--</span><span id="active-end-time-wrapper" style="display: none;"> &ndash; <span id="active-end-time">--</span></span>
+                    </span>
+                    <span class="hero-info-item" id="active-id-container">
+                        <span class="info-icon">&#x1F516;</span>
+                        <span>Session #<span id="active-session-id">--</span></span>
+                    </span>
+                    <span class="badge badge-neutral" id="active-session-badge">Inactive</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-right">
+            <button type="button" class="btn btn-deactivate" id="btn-deactivate-active-session" style="display: none;" title="Deactivate this class session">
+                <span class="btn-icon">&#x23F9;</span> Deactivate Session
+            </button>
+        </div>
+    </section>
+
+    <!-- Two-Column Workspace Layout -->
+    <div class="sessions-layout">
+        <!-- Left Column: Create Session Form -->
+        <section class="create-session-card" id="session-create-card">
+            <div class="card-header">
+                <h2 class="card-title">Schedule New Session</h2>
+                <span class="card-badge">Instant Activation</span>
+            </div>
+            <div class="card-body">
+                <!-- Inline Alert Container -->
+                <div class="form-alert" id="session-form-alert" style="display: none;">
+                    <span class="alert-icon" id="session-form-alert-icon"></span>
+                    <span class="alert-text" id="session-form-alert-text"></span>
+                </div>
+
+                <form id="form-create-session" autocomplete="off" novalidate>
+                    <!-- Course Name -->
+                    <div class="form-group">
+                        <label for="session-course-name" class="form-label">
+                            Course Name <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="session-course-name" 
+                            name="course_name" 
+                            class="form-input" 
+                            placeholder="e.g. CS-301: Operating Systems" 
+                            minlength="2" 
+                            maxlength="100" 
+                            required
+                        >
+                        <span class="form-hint">Course title or lecture description (2 to 100 characters).</span>
+                    </div>
+
+                    <!-- Session Date -->
+                    <div class="form-group">
+                        <label for="session-date" class="form-label">
+                            Session Date <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="date" 
+                            id="session-date" 
+                            name="session_date" 
+                            class="form-input" 
+                            required
+                        >
+                        <span class="form-hint">Calendar date (YYYY-MM-DD) in Asia/Kolkata timezone.</span>
+                    </div>
+
+                    <!-- Start Time -->
+                    <div class="form-group">
+                        <label for="session-start-time" class="form-label">
+                            Start Time <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="time" 
+                            id="session-start-time" 
+                            name="start_time" 
+                            class="form-input" 
+                            required
+                        >
+                        <span class="form-hint">24-hour lecture start time (HH:MM).</span>
+                    </div>
+
+                    <!-- End Time -->
+                    <div class="form-group">
+                        <label for="session-end-time" class="form-label">
+                            End Time <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="time" 
+                            id="session-end-time" 
+                            name="end_time" 
+                            class="form-input" 
+                            required
+                        >
+                        <span class="form-hint">24-hour lecture end time (HH:MM). Must be later than start time.</span>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="btn-submit-session">
+                            <span class="btn-icon">&#x2795;</span> Create Session
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="btn-reset-session-form">
+                            <span class="btn-icon">&#x2715;</span> Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Right Column: Session Roster Table Card -->
+        <section class="session-roster-card" id="session-roster-card">
+            <div class="card-header">
+                <h2 class="card-title">Classroom Session History</h2>
+                <span class="badge badge-neutral" id="session-count-badge">Loading...</span>
+            </div>
+
+            <!-- Toolbar: Search and Filter Controls -->
+            <div class="table-toolbar">
+                <div class="search-box-wrapper">
+                    <span class="search-icon">&#x1F50D;</span>
+                    <input 
+                        type="text" 
+                        id="search-sessions" 
+                        class="search-input" 
+                        placeholder="Search by course name, date, or session ID..." 
+                        autocomplete="off"
+                    >
+                    <button type="button" class="btn-clear-search" id="btn-clear-session-search" title="Clear Search" style="display: none;">&times;</button>
+                </div>
+
+                <div class="filter-controls">
+                    <label for="filter-session-status" class="filter-label">Filter Status:</label>
+                    <select id="filter-session-status" class="filter-select">
+                        <option value="all">All Sessions</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-responsive" id="session-table-container">
+                <table class="data-table" id="session-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">ID</th>
+                            <th>Course Name</th>
+                            <th style="width: 130px;">Session Date</th>
+                            <th style="width: 110px;">Start Time</th>
+                            <th style="width: 110px;">End Time</th>
+                            <th style="width: 120px;">Status</th>
+                            <th style="width: 140px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="session-table-body">
+                        <!-- Dynamic session rows rendered here -->
+                    </tbody>
+                </table>
+
+                <!-- Empty State (No sessions exist in database) -->
+                <div class="table-state-box" id="session-table-empty-state" style="display: none;">
+                    <div class="table-state-icon">&#x1F4C5;</div>
+                    <h3 class="table-state-title">No Class Sessions Found</h3>
+                    <p class="table-state-desc">The session registry is currently empty. Use the schedule form to create your first class lecture session.</p>
+                </div>
+
+                <!-- Search Empty State (No matches found for search query/filter) -->
+                <div class="table-state-box" id="session-search-empty-state" style="display: none;">
+                    <div class="table-state-icon">&#x1F50D;</div>
+                    <h3 class="table-state-title">No Matching Sessions Found</h3>
+                    <p class="table-state-desc">No sessions match your search criteria or filter. Try clearing the search query or changing the filter.</p>
+                </div>
+
+                <!-- Error State (API fetch failure) -->
+                <div class="table-state-box" id="session-table-error-state" style="display: none;">
+                    <div class="table-state-icon">&#x26A0;&#xFE0F;</div>
+                    <h3 class="table-state-title">Unable to Load Sessions</h3>
+                    <p class="table-state-desc">Failed to connect to the session database. Please check your backend connection and try again.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/sessions.js') }}"></script>
+{% endblock %}

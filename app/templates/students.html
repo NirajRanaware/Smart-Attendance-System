@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Student Management &bull; Smart Attendance Management System{% endblock %}
+{% block breadcrumb %}Student Management{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/students.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="students-container">
+    <!-- Header Banner -->
+    <section class="students-header-card">
+        <div class="header-info">
+            <h1 class="page-title">Student Management</h1>
+            <p class="page-subtitle">Register, view and manage student records.</p>
+            <div class="header-badge-row">
+                <span class="badge badge-info" id="student-module-badge">Student Registration &amp; Management (Phase 2 &bull; Milestone 2 Foundation &bull; Milestone 3 Interface)</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary btn-sm" id="btn-scroll-to-register" title="Scroll to Registration Form">
+                <span class="btn-icon">&#x2795;</span> Register Student
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-students" title="Refresh Student Roster">
+                <span class="btn-icon">&#x21BB;</span> Refresh Roster
+            </button>
+        </div>
+    </section>
+
+    <!-- 3 Student Statistics Metric Cards -->
+    <section class="stats-grid-3">
+        <!-- Card 1: Total Students -->
+        <div class="stat-card" id="card-stat-total">
+            <div class="stat-content">
+                <span class="stat-title">TOTAL REGISTERED</span>
+                <span class="stat-value" id="stat-total-students">--</span>
+                <span class="stat-subtext" id="stat-total-subtext">Students in database</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-total">&#x1F393;</div>
+        </div>
+
+        <!-- Card 2: Active Students -->
+        <div class="stat-card" id="card-stat-active">
+            <div class="stat-content">
+                <span class="stat-title">ACTIVE ROSTER</span>
+                <span class="stat-value text-success" id="stat-active-students">--</span>
+                <span class="stat-subtext" id="stat-active-subtext">Eligible for attendance</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-active">&#x2705;</div>
+        </div>
+
+        <!-- Card 3: Inactive Students -->
+        <div class="stat-card" id="card-stat-inactive">
+            <div class="stat-content">
+                <span class="stat-title">INACTIVE RECORDS</span>
+                <span class="stat-value text-muted" id="stat-inactive-students">--</span>
+                <span class="stat-subtext" id="stat-inactive-subtext">Excluded from roster</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-inactive">&#x26D4;</div>
+        </div>
+    </section>
+
+    <!-- Two-Column Workspace Layout -->
+    <div class="students-layout">
+        <!-- Left Column: Student Registration Form -->
+        <section class="registration-card" id="student-registration-card">
+            <div class="card-header">
+                <h2 class="card-title">Register New Student</h2>
+                <span class="card-badge">Instant Enrollment</span>
+            </div>
+            <div class="card-body">
+                <!-- Inline Alert Container -->
+                <div class="form-alert" id="form-alert" style="display: none;">
+                    <span class="alert-icon" id="form-alert-icon"></span>
+                    <span class="alert-text" id="form-alert-text"></span>
+                </div>
+
+                <form id="form-register-student" autocomplete="off" novalidate>
+                    <!-- Roll Number -->
+                    <div class="form-group">
+                        <label for="student-roll-number" class="form-label">
+                            Roll Number <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="student-roll-number" 
+                            name="roll_number" 
+                            class="form-input" 
+                            placeholder="e.g. CS-101" 
+                            maxlength="50" 
+                            required
+                        >
+                        <span class="form-hint">Unique institutional roll number (max 50 chars).</span>
+                    </div>
+
+                    <!-- Full Name -->
+                    <div class="form-group">
+                        <label for="student-full-name" class="form-label">
+                            Full Name <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="student-full-name" 
+                            name="full_name" 
+                            class="form-input" 
+                            placeholder="e.g. Alice Johnson" 
+                            minlength="2" 
+                            maxlength="100" 
+                            required
+                        >
+                        <span class="form-hint">Student's full name (2 to 100 characters).</span>
+                    </div>
+
+                    <!-- RFID Card UID -->
+                    <div class="form-group">
+                        <label for="student-card-uid" class="form-label">
+                            RFID Card UID <span class="required">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="student-card-uid" 
+                            name="card_uid" 
+                            class="form-input uppercase-input" 
+                            placeholder="e.g. A1B2C3D4" 
+                            minlength="4" 
+                            maxlength="50" 
+                            required
+                        >
+                        <span class="form-hint">Alphanumeric RFID UID (4 to 50 chars, auto-uppercased).</span>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="btn-submit-student">
+                            <span class="btn-icon">&#x2795;</span> Register Student
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="btn-reset-form">
+                            <span class="btn-icon">&#x2715;</span> Clear Form
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Right Column: Student Roster Table -->
+        <section class="roster-card" id="student-roster-card">
+            <div class="card-header">
+                <h2 class="card-title">Registered Student Roster</h2>
+                <span class="badge badge-neutral" id="roster-count-badge">Loading...</span>
+            </div>
+
+            <!-- Toolbar: Client-Side Search and Status Filter -->
+            <div class="table-toolbar">
+                <div class="search-box-wrapper">
+                    <span class="search-icon">&#x1F50D;</span>
+                    <input 
+                        type="text" 
+                        id="search-students" 
+                        class="search-input" 
+                        placeholder="Search by roll number, name, or RFID UID..." 
+                        autocomplete="off"
+                    >
+                    <button type="button" class="btn-clear-search" id="btn-clear-search" title="Clear Search" style="display: none;">&times;</button>
+                </div>
+
+                <div class="filter-controls">
+                    <label for="filter-status" class="filter-label">Filter Status:</label>
+                    <select id="filter-status" class="filter-select">
+                        <option value="all">All Students</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-responsive" id="student-table-container">
+                <table class="data-table" id="student-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">ID</th>
+                            <th style="width: 130px;">Roll Number</th>
+                            <th>Full Name</th>
+                            <th style="width: 140px;">RFID UID</th>
+                            <th style="width: 110px;">Status</th>
+                            <th style="width: 180px;">Registration Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-table-body">
+                        <!-- Dynamic student rows rendered here -->
+                    </tbody>
+                </table>
+
+                <!-- Empty State (No students exist in database) -->
+                <div class="table-state-box" id="table-empty-state" style="display: none;">
+                    <div class="table-state-icon">&#x1F393;</div>
+                    <h3 class="table-state-title">No Registered Students</h3>
+                    <p class="table-state-desc">The student database is currently empty. Use the registration form to enroll your first student record.</p>
+                </div>
+
+                <!-- Search Empty State (No matches found for current search/filter) -->
+                <div class="table-state-box" id="search-empty-state" style="display: none;">
+                    <div class="table-state-icon">&#x1F50D;</div>
+                    <h3 class="table-state-title">No Matching Students Found</h3>
+                    <p class="table-state-desc">No registered students match your current search query or filter selection. Try adjusting your search term.</p>
+                </div>
+
+                <!-- Error State (API fetch failure) -->
+                <div class="table-state-box" id="table-error-state" style="display: none;">
+                    <div class="table-state-icon">&#x26A0;&#xFE0F;</div>
+                    <h3 class="table-state-title">Unable to Load Roster</h3>
+                    <p class="table-state-desc">Failed to connect to the student database. Please ensure the Flask API is running and try again.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/students.js') }}"></script>
+{% endblock %}

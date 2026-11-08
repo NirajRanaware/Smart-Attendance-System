@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Live Attendance &bull; Smart Attendance Management System{% endblock %}
+{% block breadcrumb %}Live Attendance{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/attendance.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="attendance-container">
+    <!-- Header Banner -->
+    <section class="attendance-header-card">
+        <div class="header-info">
+            <h1 class="page-title">Live Attendance Interface</h1>
+            <p class="page-subtitle">Real-time attendance stream, session metrics, and simulated RFID reader.</p>
+            <div class="header-badge-row">
+                <span class="badge badge-info" id="attendance-module-badge">Live Attendance &amp; Stream Monitoring (Phase 2 &bull; Milestone 4 Foundation &bull; Milestone 5 Interface)</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-toggle-polling" title="Toggle Live Polling Stream">
+                <span class="btn-icon" id="btn-toggle-icon">&#x23F8;</span>
+                <span id="btn-toggle-text">Pause Stream</span>
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-refresh-stream" title="Refresh Attendance Stream Now">
+                <span class="btn-icon">&#x21BB;</span> Refresh Now
+            </button>
+        </div>
+    </section>
+
+    <!-- Prominent Active Session Hero Card -->
+    <section class="active-session-hero" id="live-active-session-card">
+        <div class="hero-left">
+            <div class="hero-icon-box" id="live-hero-icon">&#x1F4F6;</div>
+            <div class="hero-details">
+                <div class="hero-meta-label">
+                    <span class="status-dot" id="active-session-dot"></span>
+                    <span id="active-session-status">CURRENT ACTIVE SESSION</span>
+                </div>
+                <h2 class="hero-course-title" id="active-course-title">Checking Active Session...</h2>
+                <div class="hero-info-pills">
+                    <span class="hero-info-item" id="active-date-container">
+                        <span class="info-icon">&#x1F4C5;</span>
+                        <span id="active-session-date">--</span>
+                    </span>
+                    <span class="hero-info-item" id="active-time-container">
+                        <span class="info-icon">&#x23F0;</span>
+                        <span id="active-session-time">--</span>
+                    </span>
+                    <span class="hero-info-item" id="active-id-container">
+                        <span class="info-icon">&#x1F516;</span>
+                        <span>Session #<span id="active-session-id">--</span></span>
+                    </span>
+                    <span class="badge badge-neutral" id="active-session-badge">Inactive</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-right">
+            <div class="polling-indicator" id="polling-indicator">
+                <span class="polling-pulse" id="polling-pulse"></span>
+                <span id="polling-status-text">Live Polling (4s)</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4 Attendance Summary KPI Cards -->
+    <section class="stats-grid-4">
+        <!-- Card 1: Total Registered Students -->
+        <div class="stat-card" id="card-stat-total">
+            <div class="stat-content">
+                <span class="stat-title">REGISTERED STUDENTS</span>
+                <span class="stat-value" id="stat-total-students">--</span>
+                <span class="stat-subtext" id="stat-total-subtext">Total in database</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-total">&#x1F393;</div>
+        </div>
+
+        <!-- Card 2: Eligible Active Students -->
+        <div class="stat-card" id="card-stat-active">
+            <div class="stat-content">
+                <span class="stat-title">ELIGIBLE STUDENTS</span>
+                <span class="stat-value text-success" id="stat-active-students">--</span>
+                <span class="stat-subtext" id="stat-active-subtext">Active accounts only</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-active">&#x2705;</div>
+        </div>
+
+        <!-- Card 3: Present in Active Session -->
+        <div class="stat-card" id="card-stat-present">
+            <div class="stat-content">
+                <span class="stat-title">PRESENT (ACTIVE SESSION)</span>
+                <span class="stat-value text-success" id="stat-present-session">--</span>
+                <span class="stat-subtext" id="stat-present-subtext">Marked present today</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-present">&#x1F4CB;</div>
+        </div>
+
+        <!-- Card 4: Remaining Students -->
+        <div class="stat-card" id="card-stat-remaining">
+            <div class="stat-content">
+                <span class="stat-title">REMAINING STUDENTS</span>
+                <span class="stat-value text-warning" id="stat-remaining-session">--</span>
+                <span class="stat-subtext" id="stat-remaining-subtext">Yet to record attendance</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-remaining">&#x23F3;</div>
+        </div>
+    </section>
+
+    <!-- Workspace Layout: Left Panel (Status + Simulator) & Right Panel (Live Table) -->
+    <div class="attendance-layout">
+        <!-- Left Column: Scan Feedback Panel & Simulator -->
+        <div class="left-panel">
+            <!-- 1. Live Scan Status Feedback Panel -->
+            <section class="scan-status-card" id="scan-status-card">
+                <div class="card-header">
+                    <h2 class="card-title">Live Scan Feedback</h2>
+                    <span class="badge badge-neutral" id="scan-status-badge">Standby</span>
+                </div>
+                <div class="scan-status-body">
+                    <div class="scan-feedback-box status-idle" id="scan-feedback-box">
+                        <div class="feedback-header">
+                            <span class="feedback-icon" id="scan-feedback-icon">&#x23F3;</span>
+                            <div class="feedback-title-group">
+                                <span class="feedback-title" id="scan-feedback-title">Waiting for RFID Scan...</span>
+                                <span class="feedback-subtitle" id="scan-feedback-subtitle">Ready to receive RFID card events.</span>
+                            </div>
+                        </div>
+
+                        <div class="feedback-details" id="scan-feedback-details" style="display: none;">
+                            <div class="feedback-row" id="row-student-name">
+                                <span class="feedback-label">Student:</span>
+                                <span class="feedback-value" id="feedback-student-name">--</span>
+                            </div>
+                            <div class="feedback-row" id="row-roll-number">
+                                <span class="feedback-label">Roll Number:</span>
+                                <span class="feedback-value feedback-value-mono" id="feedback-roll-number">--</span>
+                            </div>
+                            <div class="feedback-row" id="row-scan-time">
+                                <span class="feedback-label">Scanned At:</span>
+                                <span class="feedback-value feedback-value-mono" id="feedback-scan-time">--</span>
+                            </div>
+                            <div class="feedback-row" id="row-course-name">
+                                <span class="feedback-label">Session:</span>
+                                <span class="feedback-value" id="feedback-course-name">--</span>
+                            </div>
+                            <div class="feedback-row" id="row-message">
+                                <span class="feedback-label">Message:</span>
+                                <span class="feedback-value" id="feedback-message">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. Attendance Testing & RFID Simulator Interface -->
+            <section class="simulator-card" id="simulator-card">
+                <div class="card-header">
+                    <h2 class="card-title">RFID Scanner Simulator</h2>
+                    <span class="badge badge-info">Hardware Testing</span>
+                </div>
+                <div class="card-body">
+                    <div class="simulator-notice">
+                        <strong>Simulated ESP32 / RC522 Module:</strong> Sends standard HTTP scan requests to <code>POST /api/scans</code>. All attendance timestamps and active session validations are strictly handled server-side.
+                    </div>
+
+                    <form id="form-simulate-scan" autocomplete="off" novalidate>
+                        <!-- Quick Student Selector -->
+                        <div class="form-group">
+                            <label for="sim-student-select" class="form-label">
+                                Quick Select Student
+                            </label>
+                            <select id="sim-student-select" class="form-select">
+                                <option value="">-- Choose registered student --</option>
+                            </select>
+                            <span class="form-hint">Selecting a student automatically populates their RFID Card UID.</span>
+                        </div>
+
+                        <!-- Manual Card UID Input -->
+                        <div class="form-group">
+                            <label for="sim-card-uid" class="form-label">
+                                RFID Card UID <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="sim-card-uid" 
+                                name="card_uid" 
+                                class="form-input uppercase-input" 
+                                placeholder="e.g. A1B2C3D4" 
+                                minlength="4" 
+                                maxlength="50" 
+                                required
+                            >
+                            <span class="form-hint">Hex / Alphanumeric UID (4 to 50 chars, auto-uppercased).</span>
+                        </div>
+
+                        <!-- Scan Source Identifier -->
+                        <div class="form-group">
+                            <label for="sim-source" class="form-label">
+                                Scan Source
+                            </label>
+                            <input 
+                                type="text" 
+                                id="sim-source" 
+                                name="source" 
+                                class="form-input" 
+                                value="SIMULATOR" 
+                                maxlength="50" 
+                                readonly
+                            >
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="btn-submit-scan">
+                                <span class="btn-icon">&#x26A1;</span> Simulate Scan
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btn-reset-scan">
+                                <span class="btn-icon">&#x2715;</span> Clear
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Quick Testing Chips -->
+                    <div class="quick-tests">
+                        <span class="quick-tests-label">Quick Scenario Tests:</span>
+                        <div class="quick-btn-group">
+                            <button type="button" class="btn-chip" id="btn-chip-unregistered" title="Test scan with an unregistered RFID card">
+                                Unknown UID (404)
+                            </button>
+                            <button type="button" class="btn-chip" id="btn-chip-rescan" title="Test immediate duplicate scan of last used card">
+                                Duplicate Scan (409)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Right Column: Live Attendance Table -->
+        <section class="live-roster-card" id="live-roster-card">
+            <div class="card-header">
+                <h2 class="card-title">Live Attendance Stream</h2>
+                <span class="badge badge-neutral" id="attendance-count-badge">Loading...</span>
+            </div>
+
+            <!-- Table Toolbar -->
+            <div class="table-toolbar">
+                <span class="toolbar-info" id="attendance-toolbar-info">
+                    Displaying attendance records for the active classroom lecture session.
+                </span>
+                <span class="badge badge-success" id="stream-status-badge">Live Connected</span>
+            </div>
+
+            <!-- Table Container -->
+            <div class="table-responsive" id="attendance-table-container">
+                <table class="data-table" id="attendance-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th style="width: 120px;">Roll Number</th>
+                            <th>Student Name</th>
+                            <th>Course</th>
+                            <th style="width: 110px;">Date</th>
+                            <th style="width: 120px;">Scan Time</th>
+                            <th style="width: 100px;">Status</th>
+                            <th style="width: 120px;">Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendance-table-body">
+                        <!-- Dynamic attendance records rendered here -->
+                    </tbody>
+                </table>
+
+                <!-- Empty State (Session is active but no students scanned yet) -->
+                <div class="table-state-box" id="attendance-empty-state" style="display: none;">
+                    <div class="table-state-icon">&#x1F4CB;</div>
+                    <h3 class="table-state-title">No Attendance Recorded Yet</h3>
+                    <p class="table-state-desc">The class session is active, but no students have scanned their RFID cards yet. Use the simulator to record the first scan.</p>
+                </div>
+
+                <!-- No Active Session State -->
+                <div class="table-state-box" id="attendance-no-session-state" style="display: none;">
+                    <div class="table-state-icon">&#x23F9;</div>
+                    <h3 class="table-state-title">No Active Class Session</h3>
+                    <p class="table-state-desc">There is currently no active class session. To begin recording student attendance, go to Class Sessions and activate a lecture.</p>
+                </div>
+
+                <!-- Error State (API fetch failure) -->
+                <div class="table-state-box" id="attendance-error-state" style="display: none;">
+                    <div class="table-state-icon">&#x26A0;&#xFE0F;</div>
+                    <h3 class="table-state-title">Unable to Load Attendance Stream</h3>
+                    <p class="table-state-desc">Failed to connect to the attendance API. Please check your backend connection and try again.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/attendance.js') }}"></script>
+{% endblock %}

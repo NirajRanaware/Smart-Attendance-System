@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Reports &bull; Smart Attendance Management System{% endblock %}
+{% block breadcrumb %}Attendance Reports{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+    <!-- Header Banner -->
+    <section class="reports-header-card">
+        <div class="header-info">
+            <h1 class="page-title">Attendance Reports &amp; CSV Export</h1>
+            <p class="page-subtitle">Daily classroom statistics, session breakdowns, student roster logs, and CSV download.</p>
+            <div class="header-badge-row">
+                <span class="badge badge-info" id="reports-module-badge">Attendance Reports &amp; CSV Export (Phase 2 &bull; Milestone 5 Foundation &bull; Milestone 6 Interface)</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-report" title="Refresh Report Data">
+                <span class="btn-icon">&#x21BB;</span> Refresh Data
+            </button>
+            <button type="button" class="btn-download-csv" id="btn-download-csv" title="Download Official Attendance Register as CSV">
+                <span class="btn-icon">&#x2193;</span> Download CSV Report
+            </button>
+        </div>
+    </section>
+
+    <!-- Date Picker Toolbar Card -->
+    <section class="filter-bar-card" id="report-filter-bar">
+        <div class="date-controls-group">
+            <div class="date-input-wrapper">
+                <label for="report-date" class="date-picker-label">
+                    <span>&#x1F4C5;</span> Select Date:
+                </label>
+                <input type="date" id="report-date" class="date-input" aria-label="Reporting Date">
+            </div>
+
+            <div class="quick-date-buttons">
+                <button type="button" class="btn-date-nav" id="btn-date-prev" title="Previous Day">
+                    &larr; Prev
+                </button>
+                <button type="button" class="btn-date-nav" id="btn-date-today" title="Jump to Today in Asia/Kolkata">
+                    Today
+                </button>
+                <button type="button" class="btn-date-nav" id="btn-date-next" title="Next Day">
+                    Next &rarr;
+                </button>
+            </div>
+
+            <span class="badge badge-neutral" id="display-selected-date">Loading date...</span>
+        </div>
+
+        <div class="filter-actions-group">
+            <span class="toolbar-info" id="export-hint-text">Official CSV export uses backend LEFT JOIN records.</span>
+        </div>
+    </section>
+
+    <!-- 5 Attendance KPI Metric Cards -->
+    <section class="stats-grid-5">
+        <!-- Card 1: Total Registered Students -->
+        <div class="stat-card" id="card-stat-total">
+            <div class="stat-content">
+                <span class="stat-title">REGISTERED STUDENTS</span>
+                <span class="stat-value" id="stat-total-students">--</span>
+                <span class="stat-subtext" id="stat-total-subtext">Total in database</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-total">&#x1F393;</div>
+        </div>
+
+        <!-- Card 2: Active Eligible Students -->
+        <div class="stat-card" id="card-stat-active">
+            <div class="stat-content">
+                <span class="stat-title">ELIGIBLE STUDENTS</span>
+                <span class="stat-value text-success" id="stat-active-students">--</span>
+                <span class="stat-subtext" id="stat-active-subtext">Active accounts only</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-active">&#x2705;</div>
+        </div>
+
+        <!-- Card 3: Total Present Today -->
+        <div class="stat-card" id="card-stat-present">
+            <div class="stat-content">
+                <span class="stat-title">TOTAL PRESENT</span>
+                <span class="stat-value text-success" id="stat-total-present">--</span>
+                <span class="stat-subtext" id="stat-present-subtext">Attended sessions</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-present">&#x1F4CB;</div>
+        </div>
+
+        <!-- Card 4: Total Absent Today -->
+        <div class="stat-card" id="card-stat-absent">
+            <div class="stat-content">
+                <span class="stat-title">TOTAL ABSENT</span>
+                <span class="stat-value text-danger" id="stat-total-absent">--</span>
+                <span class="stat-subtext" id="stat-absent-subtext">Missed sessions</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-absent">&#x274C;</div>
+        </div>
+
+        <!-- Card 5: Overall Attendance Rate -->
+        <div class="stat-card" id="card-stat-percentage">
+            <div class="stat-content">
+                <span class="stat-title">ATTENDANCE RATE</span>
+                <span class="stat-value text-primary" id="stat-attendance-percentage">--%</span>
+                <span class="stat-subtext" id="stat-percentage-subtext">Overall date rate</span>
+            </div>
+            <div class="stat-icon-badge stat-icon-rate">&#x1F4C8;</div>
+        </div>
+    </section>
+
+    <!-- Session-Wise Attendance Breakdown Card -->
+    <section class="session-breakdown-card" id="session-breakdown-card">
+        <div class="card-header">
+            <h2 class="card-title">Session-Wise Attendance Breakdown</h2>
+            <span class="badge badge-neutral" id="session-count-badge">Loading...</span>
+        </div>
+
+        <div class="table-responsive" id="session-table-container">
+            <table class="data-table" id="session-breakdown-table">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">ID</th>
+                        <th>Course Name</th>
+                        <th style="width: 120px;">Start Time</th>
+                        <th style="width: 140px; text-align: center;">Eligible Students</th>
+                        <th style="width: 110px; text-align: center;">Present</th>
+                        <th style="width: 110px; text-align: center;">Absent</th>
+                        <th style="width: 200px;">Attendance Rate</th>
+                    </tr>
+                </thead>
+                <tbody id="session-breakdown-body">
+                    <!-- Dynamic session rows rendered here -->
+                </tbody>
+            </table>
+
+            <!-- Empty State for Sessions -->
+            <div class="table-state-box" id="session-empty-state" style="display: none;">
+                <div class="table-state-icon">&#x1F4C5;</div>
+                <h3 class="table-state-title">No Sessions Scheduled on this Date</h3>
+                <p class="table-state-desc">No classroom sessions were scheduled on the selected date. Choose a different date from the calendar above to view historical reports.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Detailed Attendance Records Card -->
+    <section class="detailed-records-card" id="detailed-records-card">
+        <div class="card-header">
+            <h2 class="card-title">Detailed Student Attendance Roster</h2>
+            <span class="badge badge-neutral" id="records-count-badge">Loading...</span>
+        </div>
+
+        <!-- Table Toolbar: Search & Filters -->
+        <div class="table-toolbar">
+            <div class="search-box-wrapper">
+                <span class="search-icon">&#x1F50D;</span>
+                <input 
+                    type="text" 
+                    id="search-records" 
+                    class="search-input" 
+                    placeholder="Search by roll number or student name..." 
+                    autocomplete="off"
+                >
+                <button type="button" class="btn-clear-search" id="btn-clear-search" title="Clear Search" style="display: none;">&times;</button>
+            </div>
+
+            <div class="filter-controls">
+                <div class="filter-group">
+                    <label for="filter-session" class="filter-label">Session:</label>
+                    <select id="filter-session" class="filter-select">
+                        <option value="all">All Sessions</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filter-status" class="filter-label">Status:</label>
+                    <select id="filter-status" class="filter-select">
+                        <option value="all">All Statuses</option>
+                        <option value="Present">Present Only</option>
+                        <option value="Absent">Absent Only</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="table-responsive" id="records-table-container">
+            <table class="data-table" id="reports-attendance-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th style="width: 120px;">Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Course Name</th>
+                        <th style="width: 90px; text-align: center;">Session ID</th>
+                        <th style="width: 110px;">Date</th>
+                        <th style="width: 120px;">Scan Time</th>
+                        <th style="width: 100px;">Status</th>
+                        <th style="width: 120px;">Device Source</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-attendance-body">
+                    <!-- Dynamic detailed student attendance rows rendered here -->
+                </tbody>
+            </table>
+
+            <!-- Search Empty State -->
+            <div class="table-state-box" id="records-empty-state" style="display: none;">
+                <div class="table-state-icon">&#x1F50D;</div>
+                <h3 class="table-state-title">No Matching Records Found</h3>
+                <p class="table-state-desc">No student records match your current search query or filter criteria. Try adjusting your search term or clearing filters.</p>
+            </div>
+
+            <!-- No Sessions Empty State -->
+            <div class="table-state-box" id="records-no-sessions-state" style="display: none;">
+                <div class="table-state-icon">&#x1F4CB;</div>
+                <h3 class="table-state-title">No Attendance Records for this Date</h3>
+                <p class="table-state-desc">There are no attendance records to display for the selected date.</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="table-state-box" id="records-error-state" style="display: none;">
+                <div class="table-state-icon">&#x26A0;&#xFE0F;</div>
+                <h3 class="table-state-title">Unable to Load Attendance Report</h3>
+                <p class="table-state-desc">Failed to connect to the reports API. Please check your backend connection and try again.</p>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

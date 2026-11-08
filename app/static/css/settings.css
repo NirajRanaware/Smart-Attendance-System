@@ -1,0 +1,470 @@
+/**
+ * Smart Attendance Management System - Settings & Database Administration Stylesheet (settings.css)
+ * Responsive styling for system settings, live database metrics, danger zone, and confirmation modal.
+ */
+
+.settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ==============================================================================
+   PAGE HEADER BANNER
+   ============================================================================== */
+.settings-header-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    padding: 20px 24px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    gap: 16px;
+}
+
+/* ==============================================================================
+   ADMIN & ENVIRONMENT 2-COLUMN GRID
+   ============================================================================== */
+.settings-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.settings-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fafbfc;
+}
+
+.settings-card .card-body {
+    padding: 20px;
+    flex: 1;
+}
+
+.info-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #f1f5f9;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.info-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.info-value {
+    font-size: 13px;
+    color: var(--color-text-main);
+    font-weight: 500;
+}
+
+/* ==============================================================================
+   DATABASE MANAGEMENT SECTION
+   ============================================================================== */
+.database-management-section {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-subtitle {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin: 4px 0 0 0;
+}
+
+.db-location-badge {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 8px 14px;
+    border-radius: var(--border-radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.db-pill-label {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.db-pill-path {
+    color: var(--color-primary-light);
+    font-weight: 600;
+}
+
+/* ==============================================================================
+   4-COLUMN DATABASE METRIC CARDS
+   ============================================================================== */
+.stats-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+.stat-icon-students { background-color: #eff6ff; color: #2563eb; }
+.stat-icon-active { background-color: #ecfdf5; color: #059669; }
+.stat-icon-sessions { background-color: #f5f3ff; color: #7c3aed; }
+.stat-icon-attendance { background-color: #ecfeff; color: #0891b2; }
+
+/* ==============================================================================
+   DANGER ZONE CARD
+   ============================================================================== */
+.danger-zone-card {
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    border-radius: var(--border-radius);
+    padding: 20px 24px;
+    margin-top: 8px;
+}
+
+.danger-zone-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.danger-icon-col {
+    font-size: 32px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.danger-text-col {
+    flex: 1;
+}
+
+.danger-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #991b1b;
+    margin: 0 0 6px 0;
+}
+
+.danger-description {
+    font-size: 13px;
+    color: #7f1d1d;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.danger-description strong {
+    color: #991b1b;
+}
+
+.danger-description code {
+    background: rgba(254, 202, 202, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.danger-action-col {
+    flex-shrink: 0;
+}
+
+/* ==============================================================================
+   CONFIRMATION MODAL & DIALOG
+   ============================================================================== */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.modal-dialog {
+    background: #ffffff;
+    border-radius: var(--border-radius);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    overflow: hidden;
+    animation: modalSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-danger {
+    border-top: 4px solid var(--color-danger);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--color-border);
+    background: #fafbfc;
+}
+
+.modal-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-danger-icon {
+    font-size: 20px;
+}
+
+.modal-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0;
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+    color: var(--color-text-main);
+    background: #f1f5f9;
+}
+
+.modal-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.modal-alert-danger {
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+    border-radius: var(--border-radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #991b1b;
+    line-height: 1.5;
+}
+
+.data-impact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.impact-box {
+    border-radius: var(--border-radius-sm);
+    padding: 14px 16px;
+}
+
+.impact-deleted {
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+}
+
+.impact-preserved {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+}
+
+.impact-heading {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+}
+
+.impact-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: var(--color-text-main);
+    line-height: 1.6;
+}
+
+.impact-list code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.confirmation-input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: #f8fafc;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.confirm-phrase-highlight {
+    color: var(--color-danger);
+    background: #fee2e2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.form-input-danger {
+    border: 1px solid #f87171 !important;
+    font-weight: 600;
+    color: #991b1b !important;
+}
+
+.form-input-danger:focus {
+    outline: none;
+    border-color: var(--color-danger) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.modal-error-banner {
+    background: #fef2f2;
+    border: 1px solid #f87171;
+    color: #991b1b;
+    padding: 10px 14px;
+    border-radius: var(--border-radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--color-border);
+    background: #fafbfc;
+}
+
+/* ==============================================================================
+   RESPONSIVE DESIGN ADAPTATIONS
+   ============================================================================== */
+@media (max-width: 992px) {
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .settings-grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .danger-zone-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .danger-action-col {
+        width: 100%;
+    }
+
+    .danger-action-col .btn {
+        width: 100%;
+    }
+
+    .data-impact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .stats-grid-4 {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-header-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        width: 100%;
+    }
+
+    .header-actions .btn {
+        width: 100%;
+    }
+}

@@ -1,0 +1,799 @@
+/**
+ * Smart Attendance Management System - Live Attendance Stylesheet (attendance.css)
+ * Real-Time Attendance Monitoring, Scan Status Panel, RFID Simulator, and KPI Metrics.
+ */
+
+.attendance-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ==============================================================================
+   PAGE HEADER BANNER
+   ============================================================================== */
+.attendance-header-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    padding: 20px 24px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    gap: 16px;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.header-badge-row {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* ==============================================================================
+   PROMINENT ACTIVE SESSION HERO CARD
+   ============================================================================== */
+.active-session-hero {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-left: 5px solid #cbd5e1;
+    border-radius: var(--border-radius);
+    padding: 22px 26px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    transition: all var(--transition-normal);
+}
+
+.active-session-hero.is-active {
+    border-left-color: var(--color-success);
+    background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+}
+
+.hero-left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.hero-icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--border-radius);
+    background-color: #f1f5f9;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.active-session-hero.is-active .hero-icon-box {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.hero-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.hero-meta-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hero-course-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--color-text-main);
+    line-height: 1.2;
+    margin-bottom: 6px;
+}
+
+.hero-info-pills {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 13px;
+    color: var(--color-text-muted);
+    flex-wrap: wrap;
+}
+
+.hero-info-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hero-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* Polling Pulse Dot */
+.polling-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: #f8fafc;
+    padding: 4px 10px;
+    border-radius: var(--border-radius-pill);
+    border: 1px solid var(--color-border);
+}
+
+.polling-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-success);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: pulseStream 2s infinite;
+}
+
+.polling-indicator.paused .polling-pulse {
+    background-color: #94a3b8;
+    animation: none;
+}
+
+@keyframes pulseStream {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+/* ==============================================================================
+   FOUR ATTENDANCE SUMMARY KPI CARDS
+   ============================================================================== */
+.stats-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.stat-card {
+    background: #ffffff;
+    padding: 20px 22px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--color-text-main);
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+
+.stat-subtext {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.stat-icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--border-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.stat-icon-total {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.stat-icon-active {
+    background-color: #f0fdf4;
+    color: #10b981;
+}
+
+.stat-icon-present {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.stat-icon-remaining {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+/* ==============================================================================
+   WORKSPACE LAYOUT: TWO COLUMNS (SIMULATOR & STREAM TABLE)
+   ============================================================================== */
+.attendance-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* ==============================================================================
+   LIVE SCAN STATUS PANEL
+   ============================================================================== */
+.scan-status-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.scan-status-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.scan-status-body {
+    padding: 20px;
+}
+
+.scan-feedback-box {
+    border-radius: var(--border-radius-sm);
+    padding: 16px 18px;
+    border: 1px solid var(--color-border);
+    background-color: #f8fafc;
+    transition: all var(--transition-normal);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Status variants */
+.scan-feedback-box.status-idle {
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
+}
+
+.scan-feedback-box.status-success {
+    border-color: #86efac;
+    background-color: #f0fdf4;
+}
+
+.scan-feedback-box.status-duplicate {
+    border-color: #fcd34d;
+    background-color: #fffbeb;
+}
+
+.scan-feedback-box.status-unregistered {
+    border-color: #fca5a5;
+    background-color: #fef2f2;
+}
+
+.scan-feedback-box.status-inactive {
+    border-color: #fdba74;
+    background-color: #fff7ed;
+}
+
+.scan-feedback-box.status-no-session {
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
+}
+
+.scan-feedback-box.status-error {
+    border-color: #fca5a5;
+    background-color: #fef2f2;
+}
+
+.feedback-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.feedback-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.feedback-title-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.feedback-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    line-height: 1.2;
+}
+
+.feedback-subtitle {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.feedback-details {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    border-top: 1px dashed rgba(0, 0, 0, 0.08);
+    padding-top: 10px;
+}
+
+.feedback-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.feedback-label {
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.feedback-value {
+    color: var(--color-text-main);
+    font-weight: 600;
+}
+
+.feedback-value-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+/* ==============================================================================
+   RFID SIMULATOR INTERFACE
+   ============================================================================== */
+.simulator-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.simulator-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.simulator-card .card-body {
+    padding: 20px;
+}
+
+.simulator-notice {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    background-color: #f8fafc;
+    border-left: 3px solid #3b82f6;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 18px;
+    line-height: 1.4;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.form-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 6px;
+}
+
+.form-label .required {
+    color: #dc2626;
+    margin-left: 2px;
+}
+
+.form-input, .form-select {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background-color: #ffffff;
+    color: var(--color-text-main);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: var(--color-primary-light);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.uppercase-input {
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+}
+
+.form-hint {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.form-actions .btn {
+    flex: 1;
+}
+
+/* Quick Test Buttons */
+.quick-tests {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--color-border);
+}
+
+.quick-tests-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.quick-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.btn-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-pill);
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-chip:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+}
+
+/* ==============================================================================
+   LIVE ATTENDANCE ROSTER CARD & TABLE
+   ============================================================================== */
+.live-roster-card {
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.live-roster-card .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.table-toolbar {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--color-border);
+    background-color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.toolbar-info {
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.table-responsive {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: #f8fafc;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    color: var(--color-text-main);
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    transition: background-color var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.row-newly-scanned {
+    animation: scanGlow 3s ease-out;
+}
+
+@keyframes scanGlow {
+    0% {
+        background-color: #dcfce7;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.cell-bold {
+    font-weight: 700;
+    color: var(--color-text-main);
+}
+
+.cell-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+/* Empty & Error States */
+.table-state-box {
+    padding: 48px 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-state-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+    color: #94a3b8;
+}
+
+.table-state-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin-bottom: 6px;
+}
+
+.table-state-desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    max-width: 420px;
+    line-height: 1.4;
+}
+
+/* ==============================================================================
+   RESPONSIVE DESIGN BREAKPOINTS
+   ============================================================================== */
+@media (min-width: 1440px) {
+    .attendance-layout {
+        grid-template-columns: 420px 1fr;
+    }
+}
+
+@media (max-width: 1200px) {
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 1024px) {
+    .attendance-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .left-panel {
+        order: 2;
+    }
+
+    .live-roster-card {
+        order: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .attendance-header-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 18px 20px;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .active-session-hero {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 20px;
+        gap: 16px;
+    }
+
+    .hero-right {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .stats-grid-4 {
+        grid-template-columns: 1fr;
+    }
+
+    .table-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+
+@media (max-width: 480px) {
+    .attendance-header-card {
+        padding: 16px 14px;
+    }
+
+    .header-actions {
+        flex-direction: column;
+    }
+
+    .header-actions .btn {
+        width: 100%;
+    }
+
+    .stat-card {
+        padding: 14px 16px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+
+    .quick-btn-group {
+        flex-direction: column;
+    }
+
+    .btn-chip {
+        width: 100%;
+        text-align: center;
+        min-height: 40px;
+    }
+
+    .hero-course-title {
+        font-size: 17px;
+    }
+
+    .hero-info-pills {
+        gap: 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 320px) {
+    .page-title {
+        font-size: 18px;
+    }
+
+    .hero-left {
+        gap: 12px;
+    }
+
+    .hero-icon-box {
+        width: 42px;
+        height: 42px;
+        font-size: 20px;
+    }
+}
