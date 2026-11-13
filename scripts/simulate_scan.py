@@ -194,15 +194,29 @@ def send_scan(
     if status_code == 409:
         combined_text = f"{error_label} {detail_msg}".lower()
         if "duplicate" in combined_text:
+            stu = response_json.get("student") or {}
+            att = response_json.get("attendance") or {}
+            student_name = stu.get("student_name") or att.get("student_name")
+            roll_number = stu.get("roll_number") or att.get("roll_number")
+
+            dup_msg = (
+                "[ DUPLICATE ATTENDANCE ] Attendance has already been recorded "
+                "for this student in this session."
+            )
+            if student_name or roll_number:
+                dup_msg += (
+                    f"\nStudent Name:      {student_name or 'N/A'}"
+                    f"\nRoll Number:       {roll_number or 'N/A'}"
+                    f"\nAttendance Status: ALREADY PRESENT"
+                )
             return {
                 "success": False,
                 "status_code": 409,
                 "error_type": "DUPLICATE_ATTENDANCE",
-                "message": (
-                    "[ DUPLICATE ATTENDANCE ] Attendance has already been recorded "
-                    "for this student in this session."
-                ),
+                "message": dup_msg,
                 "data": response_json,
+                "student": stu,
+                "attendance": att,
             }
         if "active session" in combined_text or "session" in combined_text:
             return {
@@ -261,6 +275,7 @@ def format_scan_result(result: Dict[str, Any]) -> str:
         lines = [
             "",
             "[ SUCCESS ] Attendance Recorded!",
+            "STUDENT IDENTIFIED",
             "",
             f"Student Name:      {student_name}",
             f"Roll Number:       {roll_number}",

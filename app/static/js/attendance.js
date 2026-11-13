@@ -60,9 +60,17 @@
 
         const studentNameEl = document.getElementById("feedback-student-name");
         const rollNumberEl = document.getElementById("feedback-roll-number");
+        const attendanceStatusEl = document.getElementById("feedback-attendance-status");
         const scanTimeEl = document.getElementById("feedback-scan-time");
         const courseNameEl = document.getElementById("feedback-course-name");
         const messageEl = document.getElementById("feedback-message");
+
+        const rowRoll = document.getElementById("row-roll-number");
+        const rowStudent = document.getElementById("row-student-name");
+        const rowAttendance = document.getElementById("row-attendance-status");
+        const rowScanTime = document.getElementById("row-scan-time");
+        const rowCourse = document.getElementById("row-course-name");
+        const rowMessage = document.getElementById("row-message");
 
         if (!box) return;
 
@@ -109,10 +117,27 @@
         }
 
         // Show/populate details if available
-        if (details && (details.studentName || details.rollNumber || details.message)) {
+        if (details && (details.studentName || details.rollNumber || details.message || details.attendanceStatus)) {
             if (detailsContainer) detailsContainer.style.display = "flex";
-            if (studentNameEl) studentNameEl.textContent = details.studentName || "--";
+
             if (rollNumberEl) rollNumberEl.textContent = details.rollNumber || "--";
+            if (rowRoll) rowRoll.style.display = details.rollNumber ? "flex" : "none";
+
+            if (studentNameEl) studentNameEl.textContent = details.studentName || "--";
+            if (rowStudent) rowStudent.style.display = details.studentName ? "flex" : "none";
+
+            if (attendanceStatusEl) {
+                attendanceStatusEl.textContent = details.attendanceStatus || "--";
+                if (details.attendanceStatus === "PRESENT") {
+                    attendanceStatusEl.className = "feedback-value text-success font-weight-bold";
+                } else if (details.attendanceStatus === "ALREADY PRESENT") {
+                    attendanceStatusEl.className = "feedback-value text-warning font-weight-bold";
+                } else {
+                    attendanceStatusEl.className = "feedback-value font-weight-bold";
+                }
+            }
+            if (rowAttendance) rowAttendance.style.display = details.attendanceStatus ? "flex" : "none";
+
             if (scanTimeEl) {
                 if (details.scanTime && window.AppUtils && typeof window.AppUtils.formatScanTime === "function") {
                     scanTimeEl.textContent = window.AppUtils.formatScanTime(details.scanTime);
@@ -120,8 +145,13 @@
                     scanTimeEl.textContent = details.scanTime || "--";
                 }
             }
+            if (rowScanTime) rowScanTime.style.display = details.scanTime ? "flex" : "none";
+
             if (courseNameEl) courseNameEl.textContent = details.courseName || (activeSession ? activeSession.course_name : "--");
+            if (rowCourse) rowCourse.style.display = details.courseName ? "flex" : "none";
+
             if (messageEl) messageEl.textContent = details.message || "--";
+            if (rowMessage) rowMessage.style.display = details.message ? "flex" : "none";
         } else {
             if (detailsContainer) detailsContainer.style.display = "none";
         }
@@ -412,18 +442,23 @@
             const res = await window.ApiClient.post("/api/scans", payload);
 
             if (res.success && res.status === 201) {
-                // HTTP 201: Successful Attendance Recorded
-                const att = res.data.attendance;
-                updateScanFeedback("success", "Attendance Recorded Successfully", res.data.message || "Attendance marked Present.", {
-                    studentName: att.student_name,
-                    rollNumber: att.roll_number,
+                // HTTP 201: Successful Attendance Recorded - Student Identified
+                const att = (res.data && res.data.attendance) || {};
+                const stu = (res.data && res.data.student) || {};
+                const rollNo = stu.roll_number || att.roll_number;
+                const stuName = stu.student_name || att.student_name;
+
+                updateScanFeedback("success", "STUDENT IDENTIFIED", res.data.message || "Attendance marked Present.", {
+                    rollNumber: rollNo,
+                    studentName: stuName,
+                    attendanceStatus: "PRESENT",
                     scanTime: att.scanned_at,
                     courseName: att.course_name,
                     message: "Marked Present in active lecture session.",
                 });
 
                 if (window.showToast) {
-                    window.showToast(`Attendance marked for ${att.student_name} (${att.roll_number})`, "success", 4000);
+                    window.showToast(`Attendance marked for ${stuName} (${rollNo})`, "success", 4000);
                 }
 
                 // Immediate stream refresh
@@ -436,7 +471,17 @@
                         message: "Go to Class Sessions to activate a session first.",
                     });
                 } else {
-                    updateScanFeedback("duplicate", "Duplicate Attendance Detected", res.data.message || "Attendance has already been recorded for this student in this session.", {
+                    const att = (res.data && res.data.attendance) || {};
+                    const stu = (res.data && res.data.student) || {};
+                    const rollNo = stu.roll_number || att.roll_number;
+                    const stuName = stu.student_name || att.student_name;
+
+                    updateScanFeedback("duplicate", "DUPLICATE ATTENDANCE DETECTED", res.data.message || "Attendance has already been recorded for this student in this session.", {
+                        rollNumber: rollNo,
+                        studentName: stuName,
+                        attendanceStatus: "ALREADY PRESENT",
+                        scanTime: att.scanned_at,
+                        courseName: (activeSession ? activeSession.course_name : (att.course_name || "--")),
                         message: "Card scan rejected: Student already marked Present.",
                     });
                 }

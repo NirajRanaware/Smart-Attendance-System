@@ -128,7 +128,8 @@ def process_scan():
             return jsonify({
                 "success": False,
                 "error": "Student Not Found",
-                "message": "This RFID card is not registered."
+                "message": "This RFID card is not registered.",
+                "scan_result": "UNKNOWN_CARD"
             }), 404
         
         # 4. Check whether student account is active
@@ -136,7 +137,8 @@ def process_scan():
             return jsonify({
                 "success": False,
                 "error": "Inactive Student",
-                "message": "This student account is inactive."
+                "message": "This student account is inactive.",
+                "scan_result": "INACTIVE_STUDENT"
             }), 403
         
         # 5. Transaction Safety: Use BEGIN IMMEDIATE to serialize active session verification and insert
@@ -158,7 +160,8 @@ def process_scan():
             return jsonify({
                 "success": False,
                 "error": "No Active Session",
-                "message": "No class session is currently active. Attendance cannot be recorded."
+                "message": "No class session is currently active. Attendance cannot be recorded.",
+                "scan_result": "NO_ACTIVE_SESSION"
             }), 409
         
         # Check if the active session has ended (reached or passed end_time)
@@ -168,7 +171,8 @@ def process_scan():
             return jsonify({
                 "success": False,
                 "error": "Conflict",
-                "message": "The active class session has ended. Attendance cannot be recorded."
+                "message": "The active class session has ended. Attendance cannot be recorded.",
+                "scan_result": "SESSION_EXPIRED"
             }), 409
         
         student_id = student["id"]
@@ -190,7 +194,21 @@ def process_scan():
             return jsonify({
                 "success": False,
                 "error": "Duplicate Attendance",
-                "message": "Attendance has already been recorded for this student in this session."
+                "message": "Attendance has already been recorded for this student in this session.",
+                "scan_result": "DUPLICATE",
+                "student": {
+                    "id": student_id,
+                    "roll_number": student["roll_number"],
+                    "student_name": student["full_name"],
+                    "card_uid": card_uid
+                },
+                "attendance": {
+                    "id": existing_attendance["id"],
+                    "roll_number": student["roll_number"],
+                    "student_name": student["full_name"],
+                    "status": "Present",
+                    "scanned_at": existing_attendance["scanned_at"]
+                }
             }), 409
         
         # 7. Generate server UTC timestamp (ISO 8601 ending in Z)
@@ -222,6 +240,13 @@ def process_scan():
         return jsonify({
             "success": True,
             "message": "Attendance recorded successfully",
+            "scan_result": "SUCCESS",
+            "student": {
+                "id": student_id,
+                "roll_number": student["roll_number"],
+                "student_name": student["full_name"],
+                "card_uid": card_uid
+            },
             "attendance": {
                 "id": attendance_id,
                 "roll_number": student["roll_number"],
@@ -241,7 +266,14 @@ def process_scan():
         return jsonify({
             "success": False,
             "error": "Duplicate Attendance",
-            "message": "Attendance has already been recorded for this student in this session."
+            "message": "Attendance has already been recorded for this student in this session.",
+            "scan_result": "DUPLICATE",
+            "student": {
+                "id": student["id"] if student else None,
+                "roll_number": student["roll_number"] if student else None,
+                "student_name": student["full_name"] if student else None,
+                "card_uid": card_uid
+            }
         }), 409
 
     except Exception as e:
