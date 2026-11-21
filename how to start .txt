@@ -1,0 +1,17 @@
+1. Open project folder
+cd /d C:\Projects\Smart-Attendance-System
+
+
+2. Activate virtual environment
+.venv\Scripts\activate
+
+
+3. Start the project
+python run.py
+
+
+4. Open in Chrome
+http://127.0.0.1:5000
+
+
+To stop the server, press Ctrl + C in CMD.

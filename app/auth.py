@@ -171,6 +171,74 @@ def get_current_admin() -> dict | None:
     }
 
 
+def validate_device_credentials(device_id: str, api_key: str) -> tuple[bool, str]:
+    """
+    Validates hardware device credentials against configured DEVICE_API_KEYS.
+    - Constant-time comparison using hmac.compare_digest
+    - Rejects empty, missing, or unknown device credentials
+    """
+    if not device_id or not api_key:
+        return False, "Device ID and API key cannot be empty."
+
+    configured_keys = current_app.config.get("DEVICE_API_KEYS", {})
+    if not configured_keys or not isinstance(configured_keys, dict):
+        return False, "Hardware device authentication is not configured on the server."
+
+    if device_id not in configured_keys:
+        return False, f"Unknown device identifier: '{device_id}'."
+
+    expected_key = configured_keys[device_id]
+    if not hmac.compare_digest(str(expected_key), str(api_key)):
+        return False, "Invalid device API key."
+
+    return True, ""
+
+
+def scan_auth_required(view_func):
+    """
+    Authentication decorator specifically for POST /api/scans.
+    Supports either:
+    1. Authenticated hardware device verified in before_request (g.is_device_authenticated == True).
+    2. Authenticated administrator session (is_authenticated() == True).
+
+    Security rules:
+    - If device headers were supplied, they MUST have passed device validation.
+      They will NEVER fall back to administrator session authentication.
+    - If device headers were NOT supplied:
+      - If LOGIN_DISABLED is True in application config (e.g. testing), bypasses check.
+      - Else requires active administrator session (is_authenticated()).
+    """
+    @wraps(view_func)
+    def decorated_view(*args, **kwargs):
+        # 1. Device authentication path (verified during before_request)
+        if getattr(g, "is_device_authenticated", False):
+            return view_func(*args, **kwargs)
+
+        # 2. Strict guard: If device headers were present, they must be authenticated
+        has_dev_headers = "X-Device-Id" in request.headers or "X-API-Key" in request.headers
+        if has_dev_headers:
+            return jsonify({
+                "success": False,
+                "error": "Unauthorized",
+                "message": "Valid device credentials required."
+            }), 401
+
+        # 3. Dashboard / browser session path without device headers
+        if current_app.config.get("LOGIN_DISABLED", False):
+            return view_func(*args, **kwargs)
+
+        if is_authenticated():
+            return view_func(*args, **kwargs)
+
+        return jsonify({
+            "success": False,
+            "error": "Unauthorized",
+            "message": "Administrator authentication or valid device credentials required."
+        }), 401
+
+    return decorated_view
+
+
 def login_required(view_func):
     """
     Decorator to protect administrative views and API endpoints.
@@ -219,14 +287,62 @@ def init_security_extensions(app: Flask) -> None:
             "is_authenticated": is_authenticated(),
         }
 
-    # 2. Before-request CSRF protection middleware
+    # 2. Before-request hardware device authentication and CSRF protection middleware
     @app.before_request
-    def verify_csrf():
+    def verify_device_and_csrf():
         # Safe HTTP methods do not change state
         if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
             return None
 
-        # Check configuration flags
+        # Check for hardware device authentication headers
+        has_device_id = "X-Device-Id" in request.headers
+        has_api_key = "X-API-Key" in request.headers
+
+        if has_device_id or has_api_key:
+            # Device authentication attempted: enforce strict endpoint and method restriction
+            if request.path != "/api/scans" or request.method != "POST":
+                return jsonify({
+                    "success": False,
+                    "error": "Forbidden",
+                    "message": "Device authentication is strictly restricted to POST /api/scans."
+                }), 403
+
+            # Enforce presence of both non-empty headers
+            if not has_device_id or not has_api_key:
+                return jsonify({
+                    "success": False,
+                    "error": "Unauthorized",
+                    "message": "Incomplete device credentials: both X-Device-Id and X-API-Key are required."
+                }), 401
+
+            dev_id = request.headers.get("X-Device-Id", "").strip()
+            dev_key = request.headers.get("X-API-Key", "").strip()
+            if not dev_id or not dev_key:
+                return jsonify({
+                    "success": False,
+                    "error": "Unauthorized",
+                    "message": "Device credentials cannot be empty or whitespace-only."
+                }), 401
+
+            # Validate device credentials strictly against configured keys (constant-time check)
+            is_valid, err_msg = validate_device_credentials(dev_id, dev_key)
+            if not is_valid:
+                # Fails closed with 401; NEVER falls back to admin session
+                return jsonify({
+                    "success": False,
+                    "error": "Unauthorized",
+                    "message": err_msg
+                }), 401
+
+            # Successfully authenticated device for POST /api/scans
+            g.authenticated_device = dev_id
+            g.is_device_authenticated = True
+            # Authenticated device request to POST /api/scans is exempt from CSRF
+            return None
+
+        # ----------------------------------------------------------------------
+        # No device headers present: Standard dashboard / browser CSRF protection
+        # ----------------------------------------------------------------------
         csrf_enabled = app.config.get("CSRF_ENABLED", True) and app.config.get("WTF_CSRF_ENABLED", True)
         if not csrf_enabled:
             return None

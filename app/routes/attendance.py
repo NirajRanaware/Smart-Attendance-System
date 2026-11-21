@@ -10,7 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app
 from app.database import get_db
-from app.auth import login_required
+from app.auth import login_required, scan_auth_required
 from app.time_utils import is_session_expired
 
 attendance_bp = Blueprint("attendance", __name__)
@@ -72,7 +72,7 @@ def validate_scan_payload(data: dict) -> tuple[bool, str]:
 
 
 @attendance_bp.route("/scans", methods=["POST"])
-@login_required
+@scan_auth_required
 def process_scan():
     """
     POST /api/scans

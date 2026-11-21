@@ -39,3 +39,7 @@ backups/
 # Local environment files
 .env.*
 !.env.example
+
+# Local Embedded Toolchains & Build Artifacts
+tools/
+build/

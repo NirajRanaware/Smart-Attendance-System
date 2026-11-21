@@ -5,7 +5,9 @@ Manages database paths and environment settings using Python's pathlib.
 
 from pathlib import Path
 from datetime import timedelta
+import json
 import os
+import re
 
 # Root directory of the project (c:\Users\niraj\Downloads\Smart-Attendance-System)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +16,69 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_DIR = BASE_DIR / "database"
 BACKUP_DIR = BASE_DIR / "backups"
 CREDENTIALS_DIR = BASE_DIR / "credentials"
+
+
+def validate_device_api_keys(keys_dict: dict) -> dict[str, str]:
+    """
+    Strictly validates a dictionary of device credentials:
+    - Must be a dictionary of {device_id: api_key}
+    - device_id: non-empty string, 3 to 50 chars, alphanumeric/dashes/underscores
+    - api_key: non-empty string, minimum 32 characters, non-whitespace
+    - Rejects empty, malformed, or partially invalid entries
+    """
+    if not isinstance(keys_dict, dict):
+        raise ValueError("DEVICE_API_KEYS must be a dictionary mapping device_id to api_key.")
+
+    validated: dict[str, str] = {}
+    for dev_id, key in keys_dict.items():
+        if not isinstance(dev_id, str):
+            raise ValueError(f"Invalid device_id '{dev_id}': must be a string.")
+        dev_id_clean = dev_id.strip()
+        if not dev_id_clean:
+            raise ValueError("DEVICE_API_KEYS contains an empty or whitespace-only device_id.")
+        if len(dev_id_clean) < 3 or len(dev_id_clean) > 50:
+            raise ValueError(f"device_id '{dev_id_clean}' must be between 3 and 50 characters.")
+        if not re.match(r"^[A-Za-z0-9_-]+$", dev_id_clean):
+            raise ValueError(f"device_id '{dev_id_clean}' contains invalid characters (allowed: alphanumeric, dashes, underscores).")
+
+        if not isinstance(key, str):
+            raise ValueError(f"API key for device '{dev_id_clean}' must be a string.")
+        key_clean = key.strip()
+        if not key_clean:
+            raise ValueError(f"API key for device '{dev_id_clean}' cannot be empty or whitespace-only.")
+        if len(key_clean) < 32:
+            raise ValueError(f"API key for device '{dev_id_clean}' is too short (minimum 32 characters required).")
+
+        validated[dev_id_clean] = key_clean
+
+    return validated
+
+
+def load_device_api_keys() -> dict[str, str]:
+    """
+    Loads and strictly validates DEVICE_API_KEYS from environment variable.
+    - If DEVICE_API_KEYS is missing or empty: returns {} (fail closed).
+    - If set: parses as JSON object with duplicate-key detection and strict validation.
+    - Rejects malformed JSON, duplicate keys, empty keys, or invalid types.
+    """
+    raw_env = os.environ.get("DEVICE_API_KEYS", "").strip()
+    if not raw_env:
+        return {}
+
+    def _check_duplicates(pairs):
+        d = {}
+        for k, v in pairs:
+            if k in d:
+                raise ValueError(f"Duplicate device_id '{k}' detected in DEVICE_API_KEYS configuration.")
+            d[k] = v
+        return d
+
+    try:
+        parsed = json.loads(raw_env, object_pairs_hook=_check_duplicates)
+    except json.JSONDecodeError as err:
+        raise ValueError(f"Malformed JSON in DEVICE_API_KEYS environment variable: {err}") from err
+
+    return validate_device_api_keys(parsed)
 
 class Config:
     """Base configuration settings."""
@@ -33,6 +98,9 @@ class Config:
     LOGIN_DISABLED = False
     CSRF_ENABLED = True
     WTF_CSRF_ENABLED = True
+
+    # Hardware Device Authentication (Milestone 1)
+    DEVICE_API_KEYS = load_device_api_keys()
 
     # Google Sheets Integration (Phase 3)
     GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get(
