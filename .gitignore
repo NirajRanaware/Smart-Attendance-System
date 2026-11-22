@@ -43,3 +43,8 @@ backups/
 # Local Embedded Toolchains & Build Artifacts
 tools/
 build/
+
+# Compiled executables and object files
+*.exe
+*.obj
+*.o

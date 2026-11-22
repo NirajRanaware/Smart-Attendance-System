@@ -72,7 +72,7 @@ def sync_pending_records_batch(
     batch_size: int = 20,
     lease_duration_seconds: int = 60,
     spreadsheet_id: Optional[str] = None,
-    sheet_name: str = "Attendance",
+    sheet_name: str = "Attendance_Log",
     db_path: Optional[Union[str, Path]] = None,
     service: Optional[Any] = None
 ) -> dict:
@@ -100,7 +100,7 @@ def sync_pending_records_batch(
     """
     cfg = get_google_config()
     target_id = spreadsheet_id if spreadsheet_id is not None else cfg["spreadsheet_id"]
-    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance"
+    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance_Log"
 
     # Step 1: Pre-condition checks
     if has_app_context():
@@ -371,7 +371,7 @@ class SheetsSyncWorker:
         lease_duration: Optional[int] = None,
         db_path: Optional[Union[str, Path]] = None,
         spreadsheet_id: Optional[str] = None,
-        sheet_name: str = "Attendance"
+        sheet_name: str = "Attendance_Log"
     ):
         self.app = app
         self._stop_event = threading.Event()
@@ -396,7 +396,7 @@ class SheetsSyncWorker:
         self.lease_duration = lease_duration or _get_val("GOOGLE_SHEETS_SYNC_LEASE_SECONDS", 60)
         self.db_path = db_path or _get_val("DATABASE_PATH", None)
         self.spreadsheet_id = spreadsheet_id or _get_val("GOOGLE_SHEETS_SPREADSHEET_ID", "")
-        self.sheet_name = sheet_name or _get_val("GOOGLE_SHEETS_SHEET_NAME", "Attendance")
+        self.sheet_name = sheet_name or _get_val("GOOGLE_SHEETS_SHEET_NAME", "Attendance_Log")
 
     def process_batch(self, service: Optional[Any] = None) -> dict:
         """

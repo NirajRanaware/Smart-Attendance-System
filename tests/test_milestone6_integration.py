@@ -115,7 +115,7 @@ def make_mock_google_service(existing_sheet_ids: list[int] = None):
 
     def mock_get(spreadsheetId, range):
         mock_req = MagicMock()
-        if "A1:J1" in range:
+        if "A1:I1" in range or "A1:J1" in range:
             mock_req.execute.return_value = {"values": [DEFAULT_SPREADSHEET_HEADERS]}
         elif "A2:A" in range:
             mock_req.execute.return_value = {
@@ -219,7 +219,7 @@ def test_m6_area_a_outbox_failure_rolls_back_attendance_transaction(tmp_path):
 # ==============================================================================
 
 def test_m6_area_b_ten_column_schema_and_formula_sanitization():
-    """Verifies the exact approved 10-column schema contract, formula protection, and timezone."""
+    """Verifies the exact approved 9-column schema contract, formula protection, and timezone."""
     # Test record containing malicious formula attempts and optional variations
     test_record = {
         "attendance_id": 42,
@@ -234,7 +234,7 @@ def test_m6_area_b_ten_column_schema_and_formula_sanitization():
     }
 
     row = format_attendance_row(test_record)
-    assert len(row) == 10, "Row must contain exactly 10 columns."
+    assert len(row) == 9, "Row must contain exactly 9 columns."
 
     # Column 1: Attendance ID (numeric int preserved)
     assert row[0] == 42
@@ -263,9 +263,6 @@ def test_m6_area_b_ten_column_schema_and_formula_sanitization():
 
     # Column 9: Source / Device
     assert row[8] == "rfid"
-
-    # Column 10: Sync Timestamp
-    assert row[9] == "2026-11-08T10:05:00Z"
 
 
 # ==============================================================================

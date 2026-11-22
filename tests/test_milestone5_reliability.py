@@ -145,7 +145,7 @@ def make_mock_google_service(existing_sheet_ids: list[int] = None):
 
     def mock_get(spreadsheetId, range):
         mock_req = MagicMock()
-        if "A1:J1" in range:
+        if "A1:I1" in range or "A1:J1" in range:
             mock_req.execute.return_value = {"values": [DEFAULT_SPREADSHEET_HEADERS]}
         elif "A2:A" in range:
             mock_req.execute.return_value = {

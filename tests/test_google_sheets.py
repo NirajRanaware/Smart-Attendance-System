@@ -259,23 +259,24 @@ def test_12_network_timeout_handling():
 # ==============================================================================
 
 def test_13_header_provisioning_on_empty_sheet():
-    """Scenario 13: Empty sheet writes the exact 10 standard columns to row 1."""
+    """Scenario 13: Empty sheet writes the exact 9 standard columns to row 1."""
     mock_service = MagicMock()
     # Row 1 is currently empty
     mock_service.spreadsheets().values().get().execute.return_value = {"values": []}
 
-    res = ensure_sheet_headers("mock_sheet_id", sheet_name="Attendance", service=mock_service)
+    res = ensure_sheet_headers("mock_sheet_id", sheet_name="Attendance_Log", service=mock_service)
 
     assert res["success"] is True
     assert res["created"] is True
     assert res["status"] == "CREATED"
     assert res["headers"] == DEFAULT_SPREADSHEET_HEADERS
+    assert len(res["headers"]) == 9
 
-    # Verify update was called with USER_ENTERED and the exact 10 headers
+    # Verify update was called with USER_ENTERED and the exact 9 headers in range A1:I1
     mock_service.spreadsheets().values().update.assert_called_once()
     call_kwargs = mock_service.spreadsheets().values().update.call_args[1]
     assert call_kwargs["spreadsheetId"] == "mock_sheet_id"
-    assert call_kwargs["range"] == "'Attendance'!A1:J1"
+    assert call_kwargs["range"] == "'Attendance_Log'!A1:I1"
     assert call_kwargs["valueInputOption"] == "USER_ENTERED"
     assert call_kwargs["body"]["values"] == [DEFAULT_SPREADSHEET_HEADERS]
 
@@ -364,8 +365,8 @@ def test_17_attendance_id_numeric_preservation():
     assert isinstance(row[0], int)
 
 
-def test_18_ten_column_row_mapping_exactness():
-    """Scenario 18: format_attendance_row maps all 10 columns accurately according to specification."""
+def test_18_nine_column_row_mapping_exactness():
+    """Scenario 18: format_attendance_row maps all 9 columns accurately according to specification."""
     record = {
         "attendance_id": 42,
         "scanned_at": "2026-11-08T04:30:00Z",  # 10:00:00 AM IST
@@ -379,21 +380,20 @@ def test_18_ten_column_row_mapping_exactness():
 
     row = format_attendance_row(record, sync_timestamp="2026-11-08T10:05:00Z")
 
-    assert len(row) == 10
+    assert len(row) == 9
     assert row[0] == 42                     # 1. Attendance ID (int)
     assert row[1] == "2026-11-08"           # 2. Date (YYYY-MM-DD in IST)
     assert row[2] == "10:00:00"             # 3. Time (HH:MM:SS in IST)
     assert row[3] == "'=MALICIOUS_ROLL"     # 4. Roll Number (sanitized)
     assert row[4] == "Aarav Sharma"         # 5. Student Name
-    assert row[5] == "Embedded Systems"     # 6. Course / Session
+    assert row[5] == "Embedded Systems"     # 6. Course/Session
     assert row[6] == "AA11BB22"             # 7. RFID UID
-    assert row[7] == "Present"              # 8. Attendance Status
-    assert row[8] == "rfid"                 # 9. Source / Device
-    assert row[9] == "2026-11-08T10:05:00Z" # 10. Sync Timestamp
+    assert row[7] == "Present"              # 8. Status
+    assert row[8] == "rfid"                 # 9. Source/Device
 
 
 def test_19_batch_row_formatting():
-    """Scenario 19: format_attendance_batch formats a list of records into a 2D matrix."""
+    """Scenario 19: format_attendance_batch formats a list of records into a 2D matrix of 9-column rows."""
     records = [
         {"attendance_id": 1, "student_name": "Student A", "scanned_at": "2026-11-08T05:00:00Z"},
         {"attendance_id": 2, "student_name": "Student B", "scanned_at": "2026-11-08T05:01:00Z"},
@@ -402,36 +402,36 @@ def test_19_batch_row_formatting():
     assert len(batch) == 2
     assert batch[0][0] == 1
     assert batch[1][0] == 2
-    assert all(len(r) == 10 for r in batch)
+    assert all(len(r) == 9 for r in batch)
 
 
 def test_20_mocked_append_attendance_batch():
-    """Scenario 20: append_attendance_batch calls Google Sheets values.append with USER_ENTERED."""
+    """Scenario 20: append_attendance_batch calls Google Sheets values.append with RAW on A:I range."""
     mock_service = MagicMock()
     mock_append_fn = MagicMock()
     mock_service.spreadsheets().values().append = mock_append_fn
     mock_append_fn.return_value.execute.return_value = {
         "updates": {
             "updatedRows": 2,
-            "updatedRange": "'Attendance'!A2:J3"
+            "updatedRange": "'Attendance_Log'!A2:I3"
         }
     }
 
     test_rows = [
-        [1, "2026-11-08", "10:00:00", "CS-01", "Aarav", "IoT", "UID1", "Present", "rfid", "2026-11-08T10:05:00Z"],
-        [2, "2026-11-08", "10:01:00", "CS-02", "Bhavna", "IoT", "UID2", "Present", "rfid", "2026-11-08T10:05:00Z"],
+        [1, "2026-11-08", "10:00:00", "CS-01", "Aarav", "IoT", "UID1", "Present", "rfid"],
+        [2, "2026-11-08", "10:01:00", "CS-02", "Bhavna", "IoT", "UID2", "Present", "rfid"],
     ]
 
-    res = append_attendance_batch("mock_sheet_id", sheet_name="Attendance", rows=test_rows, service=mock_service)
+    res = append_attendance_batch("mock_sheet_id", sheet_name="Attendance_Log", rows=test_rows, service=mock_service)
 
     assert res["success"] is True
     assert res["appended_count"] == 2
-    assert res["updated_range"] == "'Attendance'!A2:J3"
+    assert res["updated_range"] == "'Attendance_Log'!A2:I3"
 
     mock_append_fn.assert_called_once()
     call_kwargs = mock_append_fn.call_args[1]
     assert call_kwargs["spreadsheetId"] == "mock_sheet_id"
-    assert call_kwargs["range"] == "'Attendance'!A:J"
+    assert call_kwargs["range"] == "'Attendance_Log'!A:I"
     assert call_kwargs["valueInputOption"] == "RAW"
     assert call_kwargs["insertDataOption"] == "INSERT_ROWS"
     assert call_kwargs["body"]["values"] == test_rows
@@ -510,3 +510,60 @@ def test_22_attendance_recording_remains_unaffected_without_google_sheets(tmp_pa
         assert queue_row is not None
         assert queue_row["sync_status"] == "pending"
         conn.close()
+
+
+def test_23_credential_variable_precedence(monkeypatch):
+    """
+    Scenario 23: Service Account Credential Path Precedence
+    1. Explicit GOOGLE_SERVICE_ACCOUNT_FILE takes precedence
+    2. GOOGLE_APPLICATION_CREDENTIALS is used when GOOGLE_SERVICE_ACCOUNT_FILE is absent
+    3. Safe default fallback is used when neither is configured
+    """
+    from app.config import resolve_service_account_file
+
+    # Case 1: Both variables set -> GOOGLE_SERVICE_ACCOUNT_FILE takes precedence
+    monkeypatch.setenv("GOOGLE_SERVICE_ACCOUNT_FILE", "/custom/explicit_service_account.json")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/standard/gac_service_account.json")
+    assert resolve_service_account_file() == "/custom/explicit_service_account.json"
+
+    # Case 2: Only GOOGLE_APPLICATION_CREDENTIALS set -> standard GCP path used
+    monkeypatch.delenv("GOOGLE_SERVICE_ACCOUNT_FILE", raising=False)
+    assert resolve_service_account_file() == "/standard/gac_service_account.json"
+
+    # Case 3: Neither set -> safe default fallback under credentials/
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    default_path = resolve_service_account_file()
+    assert "service_account.json" in default_path
+
+
+def test_24_default_worksheet_name_is_attendance_log(monkeypatch):
+    """Scenario 24: Default worksheet name is Attendance_Log and respects override."""
+    from app.services.google_sheets import get_google_config
+
+    # Case 1: Default resolves to Attendance_Log
+    monkeypatch.delenv("GOOGLE_SHEETS_SHEET_NAME", raising=False)
+    cfg = get_google_config()
+    assert cfg["sheet_name"] == "Attendance_Log"
+
+    # Case 2: Environment variable override is respected
+    monkeypatch.setenv("GOOGLE_SHEETS_SHEET_NAME", "Custom_Log_Tab")
+    cfg_override = get_google_config()
+    assert cfg_override["sheet_name"] == "Custom_Log_Tab"
+
+
+def test_25_exact_nine_column_headers_contract():
+    """Scenario 25: DEFAULT_SPREADSHEET_HEADERS strictly matches the 9 verified columns."""
+    expected_headers = [
+        "Attendance ID",
+        "Date",
+        "Time",
+        "Roll Number",
+        "Student Name",
+        "Course/Session",
+        "RFID UID",
+        "Status",
+        "Source/Device"
+    ]
+    assert DEFAULT_SPREADSHEET_HEADERS == expected_headers
+    assert len(DEFAULT_SPREADSHEET_HEADERS) == 9
+    assert "Sync Timestamp" not in DEFAULT_SPREADSHEET_HEADERS

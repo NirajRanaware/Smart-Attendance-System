@@ -80,6 +80,25 @@ def load_device_api_keys() -> dict[str, str]:
 
     return validate_device_api_keys(parsed)
 
+
+def resolve_service_account_file() -> str:
+    """
+    Resolves the Google Cloud service account credential file path with documented precedence:
+    1. Explicit GOOGLE_SERVICE_ACCOUNT_FILE environment variable (when non-empty)
+    2. Standard GOOGLE_APPLICATION_CREDENTIALS environment variable (when non-empty)
+    3. Safe default fallback: credentials/service_account.json (when neither is set)
+    """
+    explicit = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+    if explicit:
+        return explicit
+
+    gac = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    if gac:
+        return gac
+
+    return str(CREDENTIALS_DIR / "service_account.json")
+
+
 class Config:
     """Base configuration settings."""
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-smart-attendance-2026")
@@ -103,12 +122,10 @@ class Config:
     DEVICE_API_KEYS = load_device_api_keys()
 
     # Google Sheets Integration (Phase 3)
-    GOOGLE_SERVICE_ACCOUNT_FILE = os.environ.get(
-        "GOOGLE_SERVICE_ACCOUNT_FILE",
-        str(CREDENTIALS_DIR / "service_account.json")
-    )
+    # Precedence: GOOGLE_SERVICE_ACCOUNT_FILE -> GOOGLE_APPLICATION_CREDENTIALS -> default
+    GOOGLE_SERVICE_ACCOUNT_FILE = resolve_service_account_file()
     GOOGLE_SHEETS_SPREADSHEET_ID = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID", "").strip()
-    GOOGLE_SHEETS_SHEET_NAME = os.environ.get("GOOGLE_SHEETS_SHEET_NAME", "Attendance").strip() or "Attendance"
+    GOOGLE_SHEETS_SHEET_NAME = os.environ.get("GOOGLE_SHEETS_SHEET_NAME", "Attendance_Log").strip() or "Attendance_Log"
     GOOGLE_SHEETS_SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
 
     # Google Sheets Background Worker Configuration (Phase 3 Milestone 4)

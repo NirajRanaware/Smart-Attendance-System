@@ -31,18 +31,17 @@ from app.time_utils import KOLKATA_TZ
 
 logger = logging.getLogger(__name__)
 
-# Standard 10-column spreadsheet header layout (Phase 3 Milestone 3 Specification)
+# Standard 9-column spreadsheet header layout (aligned with live Attendance_Log sheet)
 DEFAULT_SPREADSHEET_HEADERS = [
     "Attendance ID",
     "Date",
     "Time",
     "Roll Number",
     "Student Name",
-    "Course / Session",
+    "Course/Session",
     "RFID UID",
-    "Attendance Status",
-    "Source / Device",
-    "Sync Timestamp"
+    "Status",
+    "Source/Device"
 ]
 
 # Minimum required Google API scope (Read/Write spreadsheets only)
@@ -138,19 +137,28 @@ def get_google_config() -> dict:
         cfg = current_app.config
         creds_path = cfg.get("GOOGLE_SERVICE_ACCOUNT_FILE")
         sheet_id = cfg.get("GOOGLE_SHEETS_SPREADSHEET_ID", "")
-        sheet_name = cfg.get("GOOGLE_SHEETS_SHEET_NAME", "Attendance")
+        sheet_name = cfg.get("GOOGLE_SHEETS_SHEET_NAME", "Attendance_Log")
         scopes = cfg.get("GOOGLE_SHEETS_SCOPES", DEFAULT_SHEETS_SCOPES)
     else:
         cfg = get_config()
-        creds_path = getattr(cfg, "GOOGLE_SERVICE_ACCOUNT_FILE", None)
-        sheet_id = getattr(cfg, "GOOGLE_SHEETS_SPREADSHEET_ID", "")
-        sheet_name = getattr(cfg, "GOOGLE_SHEETS_SHEET_NAME", "Attendance")
+        # Allow environment overrides when outside app context
+        env_service_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+        env_app_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        if env_service_file:
+            creds_path = env_service_file
+        elif env_app_creds:
+            creds_path = env_app_creds
+        else:
+            creds_path = getattr(cfg, "GOOGLE_SERVICE_ACCOUNT_FILE", None)
+
+        sheet_id = os.environ.get("GOOGLE_SHEETS_SPREADSHEET_ID", getattr(cfg, "GOOGLE_SHEETS_SPREADSHEET_ID", ""))
+        sheet_name = os.environ.get("GOOGLE_SHEETS_SHEET_NAME", getattr(cfg, "GOOGLE_SHEETS_SHEET_NAME", "Attendance_Log"))
         scopes = getattr(cfg, "GOOGLE_SHEETS_SCOPES", DEFAULT_SHEETS_SCOPES)
 
     return {
         "credentials_path": str(creds_path) if creds_path else None,
         "spreadsheet_id": str(sheet_id).strip() if sheet_id else "",
-        "sheet_name": str(sheet_name).strip() if sheet_name else "Attendance",
+        "sheet_name": str(sheet_name).strip() if sheet_name else "Attendance_Log",
         "scopes": tuple(scopes) if scopes else DEFAULT_SHEETS_SCOPES
     }
 
@@ -176,7 +184,7 @@ def load_credentials(
     if not credentials_path:
         raise GoogleSheetsConfigError(
             "Service account credential path is not configured. "
-            "Please configure GOOGLE_SERVICE_ACCOUNT_FILE."
+            "Please configure GOOGLE_SERVICE_ACCOUNT_FILE or GOOGLE_APPLICATION_CREDENTIALS."
         )
 
     cred_file = Path(credentials_path)
@@ -415,21 +423,21 @@ def verify_sheet_connection(
 
 def ensure_sheet_headers(
     spreadsheet_id: Optional[str] = None,
-    sheet_name: str = "Attendance",
+    sheet_name: str = "Attendance_Log",
     service: Optional[Resource] = None,
     expected_headers: Optional[List[str]] = None
 ) -> dict:
     """
-    Ensures that the first row of the designated spreadsheet tab contains the required 10 headers.
+    Ensures that the first row of the designated spreadsheet tab contains the required 9 headers.
     - If headers are already present in row 1: does not duplicate or overwrite.
-    - If row 1 is completely empty: writes the 10 standard headers.
+    - If row 1 is completely empty: writes the 9 standard headers.
     - If row 1 contains other data: prevents accidental overwriting and reports conflict.
     - Never clears existing attendance data.
     
     :param spreadsheet_id: Target spreadsheet ID.
-    :param sheet_name: Target sheet/tab name (default: "Attendance").
+    :param sheet_name: Target sheet/tab name (default: "Attendance_Log").
     :param service: Optional service instance.
-    :param expected_headers: List of 10 header strings (defaults to DEFAULT_SPREADSHEET_HEADERS).
+    :param expected_headers: List of 9 header strings (defaults to DEFAULT_SPREADSHEET_HEADERS).
     :return: Structured result dictionary.
     """
     cfg = get_google_config()
@@ -443,8 +451,8 @@ def ensure_sheet_headers(
         }
 
     headers_to_check = expected_headers or DEFAULT_SPREADSHEET_HEADERS
-    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance"
-    read_range = f"'{target_sheet}'!A1:J1"
+    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance_Log"
+    read_range = f"'{target_sheet}'!A1:I1"
 
     try:
         if service is None:
@@ -489,7 +497,7 @@ def ensure_sheet_headers(
                 "created": True,
                 "status": "CREATED",
                 "headers": headers_to_check,
-                "message": f"Successfully provisioned standard headers in '{target_sheet}'!A1:J1."
+                "message": f"Successfully provisioned standard headers in '{target_sheet}'!A1:I1."
             }
 
         # Case C: Row 1 has content that differs from expected headers
@@ -538,21 +546,20 @@ def format_attendance_row(
     sync_timestamp: Optional[str] = None
 ) -> List[Any]:
     """
-    Formats a single attendance record into the standard 10-column spreadsheet row:
+    Formats a single attendance record into the standard 9-column spreadsheet row:
     1. Attendance ID (int, numeric preserved)
-    2. Date (YYYY-MM-DD)
-    3. Time (HH:MM:SS)
+    2. Date (YYYY-MM-DD in Asia/Kolkata)
+    3. Time (HH:MM:SS in Asia/Kolkata)
     4. Roll Number (sanitized text)
     5. Student Name (sanitized text)
-    6. Course / Session (sanitized text)
+    6. Course/Session (sanitized text)
     7. RFID UID (sanitized text)
-    8. Attendance Status (sanitized text)
-    9. Source / Device (sanitized text)
-    10. Sync Timestamp (ISO 8601 UTC timestamp string)
+    8. Status (sanitized text)
+    9. Source/Device (sanitized text)
     
     :param record: Attendance record dictionary (from claim_records or query).
-    :param sync_timestamp: Optional ISO timestamp of the sync execution.
-    :return: List of 10 sanitized values.
+    :param sync_timestamp: Retained for backward compatibility (not output to spreadsheet).
+    :return: List of 9 sanitized values.
     """
     # 1. Attendance ID (must remain numeric int)
     raw_id = record.get("attendance_id") if "attendance_id" in record else record.get("id")
@@ -580,23 +587,17 @@ def format_attendance_row(
             if not date_val:
                 date_val = str(scanned_at)[:10]
 
-    # 10. Sync Timestamp resolution
-    sync_ts = sync_timestamp or record.get("sync_timestamp") or record.get("synced_at")
-    if not sync_ts:
-        sync_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    # Map the 10 columns applying formula injection sanitization
+    # Map the 9 columns applying formula injection sanitization
     return [
         att_id,                                                                         # 1. Attendance ID
         sanitize_sheet_cell(date_val),                                                  # 2. Date
         sanitize_sheet_cell(time_val),                                                  # 3. Time
         sanitize_sheet_cell(record.get("roll_number", "")),                             # 4. Roll Number
         sanitize_sheet_cell(record.get("student_name") or record.get("full_name", "")), # 5. Student Name
-        sanitize_sheet_cell(record.get("course_name") or record.get("session_name", "")), # 6. Course / Session
+        sanitize_sheet_cell(record.get("course_name") or record.get("session_name", "")), # 6. Course/Session
         sanitize_sheet_cell(record.get("card_uid", "")),                                # 7. RFID UID
-        sanitize_sheet_cell(record.get("attendance_status") or record.get("status", "Present")), # 8. Attendance Status
-        sanitize_sheet_cell(record.get("source", "")),                                  # 9. Source / Device
-        sanitize_sheet_cell(sync_ts)                                                    # 10. Sync Timestamp
+        sanitize_sheet_cell(record.get("attendance_status") or record.get("status", "Present")), # 8. Status
+        sanitize_sheet_cell(record.get("source", ""))                                   # 9. Source/Device
     ]
 
 
@@ -605,18 +606,18 @@ def format_attendance_batch(
     sync_timestamp: Optional[str] = None
 ) -> List[List[Any]]:
     """
-    Formats multiple attendance records into a 2D matrix of 10-column rows.
+    Formats multiple attendance records into a 2D matrix of 9-column rows.
     
     :param records: List of record dictionaries.
     :param sync_timestamp: Optional sync execution timestamp.
-    :return: List of 10-element lists.
+    :return: List of 9-element lists.
     """
     return [format_attendance_row(rec, sync_timestamp=sync_timestamp) for rec in records]
 
 
 def append_attendance_batch(
     spreadsheet_id: Optional[str] = None,
-    sheet_name: str = "Attendance",
+    sheet_name: str = "Attendance_Log",
     rows: Optional[List[List[Any]]] = None,
     service: Optional[Resource] = None,
     value_input_option: str = "RAW"
@@ -627,7 +628,7 @@ def append_attendance_batch(
     
     :param spreadsheet_id: Target spreadsheet ID.
     :param sheet_name: Target tab name.
-    :param rows: 2D list of row values.
+    :param rows: 2D list of row values (9 columns each).
     :param service: Optional service instance.
     :param value_input_option: "RAW" (enforced for attendance data to prevent unexpected parsing).
     :return: Structured result dictionary.
@@ -645,8 +646,8 @@ def append_attendance_batch(
             "message": "Google Spreadsheet ID is not configured."
         }
 
-    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance"
-    append_range = f"'{target_sheet}'!A:J"
+    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance_Log"
+    append_range = f"'{target_sheet}'!A:I"
 
     try:
         if service is None:
@@ -686,7 +687,7 @@ def append_attendance_batch(
 
 def get_existing_attendance_ids(
     spreadsheet_id: Optional[str] = None,
-    sheet_name: str = "Attendance",
+    sheet_name: str = "Attendance_Log",
     service: Optional[Resource] = None
 ) -> set[int]:
     """
@@ -694,7 +695,7 @@ def get_existing_attendance_ids(
     Core mechanism for duplicate prevention and idempotent synchronization.
     
     :param spreadsheet_id: Target spreadsheet ID.
-    :param sheet_name: Target tab name (default: 'Attendance').
+    :param sheet_name: Target tab name (default: 'Attendance_Log').
     :param service: Optional Google API discovery Resource.
     :return: Set of integer Attendance IDs present in the spreadsheet.
     """
@@ -703,7 +704,7 @@ def get_existing_attendance_ids(
     if not target_id or not target_id.strip():
         raise GoogleSheetsConfigError("Google Spreadsheet ID is not configured.")
 
-    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance"
+    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance_Log"
     read_range = f"'{target_sheet}'!A2:A"
 
     if service is None:

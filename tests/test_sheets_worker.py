@@ -147,11 +147,11 @@ def make_mock_google_service(existing_sheet_ids: list[int] = None):
     existing_ids = existing_sheet_ids or []
 
     # Mock values().get()
-    # Range A1:J1 returns headers
+    # Range A1:I1 returns headers
     # Range A2:A returns Column A existing IDs
     def mock_get(spreadsheetId, range):
         mock_req = MagicMock()
-        if "A1:J1" in range:
+        if "A1:I1" in range or "A1:J1" in range:
             mock_req.execute.return_value = {"values": [DEFAULT_SPREADSHEET_HEADERS]}
         elif "A2:A" in range:
             mock_req.execute.return_value = {
@@ -166,7 +166,7 @@ def make_mock_google_service(existing_sheet_ids: list[int] = None):
     # Mock values().append()
     mock_append = MagicMock()
     mock_append.return_value.execute.return_value = {
-        "updates": {"updatedRows": 1, "updatedRange": "'Attendance'!A2:J2"}
+        "updates": {"updatedRows": 1, "updatedRange": "'Attendance_Log'!A2:I2"}
     }
     service.spreadsheets().values().append = mock_append
 
@@ -258,7 +258,9 @@ def test_4_single_pending_record_synchronized_successfully(tmp_path):
     mock_service.spreadsheets().values().append.assert_called_once()
     call_kwargs = mock_service.spreadsheets().values().append.call_args[1]
     assert call_kwargs["valueInputOption"] == "RAW"
+    assert "A:I" in call_kwargs["range"]
     row_values = call_kwargs["body"]["values"][0]
+    assert len(row_values) == 9            # Exact 9 columns
     assert row_values[0] == target_att_id  # Attendance ID numeric
     assert row_values[3] == "CS-2024-001"  # Roll number
 
@@ -288,8 +290,10 @@ def test_5_multiple_records_synchronized_in_batch(tmp_path):
 
     mock_service.spreadsheets().values().append.assert_called_once()
     call_kwargs = mock_service.spreadsheets().values().append.call_args[1]
+    assert "A:I" in call_kwargs["range"]
     rows = call_kwargs["body"]["values"]
     assert len(rows) == 5
+    assert all(len(r) == 9 for r in rows)  # All rows have exact 9 columns
     assert [r[0] for r in rows] == att_ids
 
     stats = get_queue_stats(db_file)
