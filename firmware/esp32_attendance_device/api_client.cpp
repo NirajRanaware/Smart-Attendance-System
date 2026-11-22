@@ -149,8 +149,8 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
     if (httpCode == 201) {
         // HTTP 201: Attendance Successfully Marked
         resp.outcome = SCAN_OUTCOME_SUCCESS;
-        resp.attendanceStatus = "PRESENT";
 
+        // 1. Extract student details from "student" object if present
         if (resDoc["student"].is<JsonObject>()) {
             JsonObjectConst studentObj = resDoc["student"];
             if (studentObj["roll_number"].is<const char*>()) {
@@ -159,17 +159,33 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
             if (studentObj["student_name"].is<const char*>()) {
                 resp.studentName = studentObj["student_name"].as<String>();
             }
-        } else if (resDoc["attendance"].is<JsonObject>()) {
+        }
+
+        // 2. Extract attendance details independently from "attendance" object if present
+        if (resDoc["attendance"].is<JsonObject>()) {
             JsonObjectConst attObj = resDoc["attendance"];
-            if (attObj["roll_number"].is<const char*>()) {
-                resp.rollNumber = attObj["roll_number"].as<String>();
-            }
-            if (attObj["student_name"].is<const char*>()) {
-                resp.studentName = attObj["student_name"].as<String>();
-            }
+            // Extract actual attendance status from response field
             if (attObj["status"].is<const char*>()) {
                 resp.attendanceStatus = attObj["status"].as<String>();
             }
+            // Fallback for rollNumber and studentName if missing from student object
+            if (resp.rollNumber == "--" && attObj["roll_number"].is<const char*>()) {
+                resp.rollNumber = attObj["roll_number"].as<String>();
+            }
+            if (resp.studentName == "--" && attObj["student_name"].is<const char*>()) {
+                resp.studentName = attObj["student_name"].as<String>();
+            }
+        }
+
+        // 3. Fallback: check root-level "status" field if attendance object didn't have it
+        if ((resp.attendanceStatus == "--" || resp.attendanceStatus.length() == 0) &&
+            resDoc["status"].is<const char*>()) {
+            resp.attendanceStatus = resDoc["status"].as<String>();
+        }
+
+        // 4. Safe default if attendanceStatus was omitted by server response
+        if (resp.attendanceStatus == "--" || resp.attendanceStatus.length() == 0) {
+            resp.attendanceStatus = "Present";
         }
 
     } else if (httpCode == 409) {
@@ -178,6 +194,7 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
             resp.outcome = SCAN_OUTCOME_DUPLICATE;
             resp.attendanceStatus = "ALREADY PRESENT";
 
+            // Extract student details independently from "student" and "attendance" objects
             if (resDoc["student"].is<JsonObject>()) {
                 JsonObjectConst studentObj = resDoc["student"];
                 if (studentObj["roll_number"].is<const char*>()) {
@@ -186,12 +203,13 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
                 if (studentObj["student_name"].is<const char*>()) {
                     resp.studentName = studentObj["student_name"].as<String>();
                 }
-            } else if (resDoc["attendance"].is<JsonObject>()) {
+            }
+            if (resDoc["attendance"].is<JsonObject>()) {
                 JsonObjectConst attObj = resDoc["attendance"];
-                if (attObj["roll_number"].is<const char*>()) {
+                if (resp.rollNumber == "--" && attObj["roll_number"].is<const char*>()) {
                     resp.rollNumber = attObj["roll_number"].as<String>();
                 }
-                if (attObj["student_name"].is<const char*>()) {
+                if (resp.studentName == "--" && attObj["student_name"].is<const char*>()) {
                     resp.studentName = attObj["student_name"].as<String>();
                 }
             }
@@ -206,15 +224,9 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
             resp.studentName = "--";
             resp.attendanceStatus = "--";
         } else {
-            // Fallback for unexpected or missing scan_result
-            if (resp.error.equalsIgnoreCase("Duplicate Attendance")) {
-                resp.outcome = SCAN_OUTCOME_DUPLICATE;
-                resp.attendanceStatus = "ALREADY PRESENT";
-            } else if (resp.error.equalsIgnoreCase("No Active Session")) {
-                resp.outcome = SCAN_OUTCOME_NO_SESSION;
-            } else {
-                resp.outcome = SCAN_OUTCOME_NO_SESSION;
-            }
+            // Missing, empty, unknown, or malformed scan_result on HTTP 409:
+            // Fail safely to SCAN_OUTCOME_SERVER_ERROR. Never assume NO_ACTIVE_SESSION.
+            resp.outcome = SCAN_OUTCOME_SERVER_ERROR;
             resp.rollNumber = "--";
             resp.studentName = "--";
             resp.attendanceStatus = "--";
@@ -228,9 +240,8 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
         resp.attendanceStatus = "--";
 
     } else if (httpCode == 403) {
-        // HTTP 403: Inactive Student Account (or endpoint forbidden)
-        if (resp.scanResult.equalsIgnoreCase("INACTIVE_STUDENT") ||
-            resp.error.equalsIgnoreCase("Inactive Student")) {
+        // HTTP 403: Inactive Student Account or Forbidden Request
+        if (resp.scanResult.equalsIgnoreCase("INACTIVE_STUDENT")) {
             resp.outcome = SCAN_OUTCOME_INACTIVE_STUDENT;
         } else {
             resp.outcome = SCAN_OUTCOME_SERVER_ERROR;

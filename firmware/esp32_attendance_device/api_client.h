@@ -23,7 +23,7 @@ enum ScanOutcome {
     SCAN_OUTCOME_INACTIVE_STUDENT,  ///< HTTP 403: Student account is deactivated
     SCAN_OUTCOME_NO_SESSION,        ///< HTTP 409: No class session is currently active
     SCAN_OUTCOME_SESSION_EXPIRED,   ///< HTTP 409: Active session reached end_time
-    SCAN_OUTCOME_SERVER_ERROR,      ///< HTTP 500 or HTTP 400 validation error
+    SCAN_OUTCOME_SERVER_ERROR,      ///< HTTP 500, HTTP 400 validation error, or unclassified 409
     SCAN_OUTCOME_NETWORK_ERROR,     ///< Wi-Fi disconnected or HTTPClient connection failed
     SCAN_OUTCOME_DEVICE_AUTH_ERROR = SCAN_OUTCOME_SERVER_ERROR ///< HTTP 401 or missing credentials: Authentication error
 };
