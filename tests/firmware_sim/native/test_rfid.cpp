@@ -324,3 +324,57 @@ TEST_CASE(RFID_CardHaltAndCryptoCleanup) {
     rfid.haltCard();
     ASSERT_TRUE(g_lastMfrc522Instance->mockGetHaltCount() >= 2);
 }
+
+// =============================================================================
+// PART 1.4: Privacy Masking & Diagnostic Logging Security
+// =============================================================================
+
+TEST_CASE(RFID_MaskUidStandardAndEdgeCases) {
+    // 8-character standard UID
+    ASSERT_STR_EQ("A1****D4", RFIDScanner::maskUid("A1B2C3D4").c_str());
+    // 14-character 7-byte UID
+    ASSERT_STR_EQ("04****0F", RFIDScanner::maskUid("045A6B7C8D9E0F").c_str());
+    // 20-character 10-byte UID
+    ASSERT_STR_EQ("01****0A", RFIDScanner::maskUid("0102030405060708090A").c_str());
+    // Exactly 4 characters -> fully masked
+    ASSERT_STR_EQ("****", RFIDScanner::maskUid("1234").c_str());
+    // Short UIDs (<= 4 chars) -> fully masked
+    ASSERT_STR_EQ("****", RFIDScanner::maskUid("ABC").c_str());
+    ASSERT_STR_EQ("****", RFIDScanner::maskUid("").c_str());
+}
+
+TEST_CASE(RFID_LoggingDoesNotExposeRawUid) {
+    setupRfidTest();
+    Serial.mockClearOutput();
+
+    g_lastMfrc522Instance->mockSetCardPresent(true);
+    g_lastMfrc522Instance->mockInjectUidHex("A1B2C3D4");
+
+    String outUid;
+    bool ok = rfid.readCard(outUid);
+
+    ASSERT_TRUE(ok);
+    ASSERT_STR_EQ("A1B2C3D4", outUid.c_str()); // Raw UID preserved for backend
+
+    // Verify Serial output contains masked UID but NOT the raw unmasked UID
+    std::string serialLog = Serial.mockGetOutput();
+    ASSERT_TRUE(serialLog.find("A1****D4") != std::string::npos);
+    ASSERT_TRUE(serialLog.find("A1B2C3D4") == std::string::npos);
+}
+
+TEST_CASE(RFID_InvalidUidLoggingMasksCorruptedValue) {
+    setupRfidTest();
+    Serial.mockClearOutput();
+
+    // Inject invalid short UID (1 byte = 2 hex chars: "12")
+    g_lastMfrc522Instance->mockSetCardPresent(true);
+    byte rawBytes[] = { 0x12 };
+    g_lastMfrc522Instance->mockInjectUid(rawBytes, 1);
+
+    String outUid;
+    bool ok = rfid.readCard(outUid);
+
+    ASSERT_FALSE(ok);
+    std::string serialLog = Serial.mockGetOutput();
+    ASSERT_TRUE(serialLog.find("****") != std::string::npos);
+}

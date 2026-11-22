@@ -1,13 +1,16 @@
 /**
- * @file config.h
- * @brief Hardware and Network Configuration for ESP32 Smart Attendance Device.
+ * @file config.example.h
+ * @brief Hardware and Network Configuration Template for ESP32 Smart Attendance Device.
  * 
- * Central configuration file containing pin mappings, network settings,
+ * Central configuration template containing pin mappings, network settings,
  * server endpoints, timing constants, and operational parameters.
  * 
- * IMPORTANT:
- * - Do NOT commit real Wi-Fi credentials or passwords to version control.
- * - Replace placeholders with your local Wi-Fi SSID, password, and Flask server IP.
+ * INSTRUCTIONS:
+ * 1. Copy this file to 'config.h':
+ *      Copy-Item config.example.h config.h
+ * 2. Replace the placeholders below with your local Wi-Fi SSID, password,
+ *    Flask server LAN IP address, and Device API Key.
+ * 3. Never commit or upload 'config.h' to version control.
  */
 
 #ifndef CONFIG_H
@@ -44,7 +47,7 @@
 // Mandatory Hardware Device Authentication
 // A valid device API key (minimum 32 characters) is MANDATORY for hardware requests to /api/scans.
 // The backend server validates X-Device-Id and X-API-Key against configured DEVICE_API_KEYS.
-// If left empty (""), the firmware api_client will abort scan requests locally with SCAN_OUTCOME_DEVICE_AUTH_ERROR.
+// If left empty ("") or shorter than 32 characters, the firmware api_client will abort scan requests locally.
 // If an invalid or unrecognized key is sent, the backend strictly rejects requests with HTTP 401 Unauthorized.
 // Keep empty as a placeholder in version control; set to your pre-shared secret key before deployment.
 #define DEVICE_API_KEY        ""                     ///< Pre-shared Device API Key (mandatory, min 32 chars)

@@ -118,9 +118,41 @@ def test_e2e_scenario_e3_missing_device_id(live_server):
 
 def test_e2e_scenario_e4_short_device_api_key(live_server):
     """
-    SCENARIO E4 — Short Device API Key:
+    SCENARIO E4 — Short Device API Key (< 32 characters):
     1. Pass API key shorter than 32 characters (e.g. 'short_token_123').
-    2. Request is transmitted over HTTP to Flask server.
+    2. Production C++ pre-check aborts locally before opening a network socket.
+    3. Assert that NO HTTP request was transmitted (postCallCount == 0, httpTransmitted == False).
+    4. Assert outcome is SCAN_OUTCOME_DEVICE_AUTH_ERROR with local minimum-length error message.
+    5. Assert OLED display feedback shows 'Device Auth Error'.
+    6. Assert 0 attendance records created.
+    """
+    db = live_server["db_path"]
+    port = live_server["port"]
+
+    seed_student(db, roll_number="104", full_name="Pooja Rao", card_uid="D4E5F6A1")
+    seed_session(db, course_name="Data Structures", active=1)
+
+    res = run_firmware_client(port=port, card_uid="D4E5F6A1", api_key="short_token_123")
+
+    # 1. Transport verification: Aborted locally before transport begins
+    assert res["httpTransmitted"] is False
+    assert res["postCallCount"] == 0
+
+    # 2. Firmware local error synthesis (no backend packet sent)
+    assert res["httpCode"] == 401
+    assert res["scanResult"] == "DEVICE_AUTH_ERROR"
+    assert res["message"] == "DEVICE_API_KEY must be at least 32 characters"
+    assert res["error"] == "Device Auth Error"
+    assert get_attendance_count(db) == 0
+    assert "Device Auth Error" in res["displayText"]
+    assert res["buzzerPattern"] == "BUZZER_BEEP_ERROR"
+
+
+def test_e2e_scenario_e4b_invalid_32char_device_api_key(live_server):
+    """
+    SCENARIO E4B — Invalid Device API Key of Valid Length (>= 32 chars):
+    1. Pass API key of 32 characters that does not match backend configuration.
+    2. Request passes local length validation and is transmitted over HTTP.
     3. Backend device authentication rejects it with HTTP 401 Unauthorized.
     4. Production C++ maps outcome to SCAN_OUTCOME_DEVICE_AUTH_ERROR.
     5. Assert 0 attendance records created.
@@ -131,7 +163,9 @@ def test_e2e_scenario_e4_short_device_api_key(live_server):
     seed_student(db, roll_number="104", full_name="Pooja Rao", card_uid="D4E5F6A1")
     seed_session(db, course_name="Data Structures", active=1)
 
-    res = run_firmware_client(port=port, card_uid="D4E5F6A1", api_key="short_token_123")
+    # 32-character key not matching live_server's configured TEST_API_KEY
+    wrong_32char_key = "wrong_secret_key_32_characters_!"
+    res = run_firmware_client(port=port, card_uid="D4E5F6A1", api_key=wrong_32char_key)
 
     # 1. Transport verification: Request actually transmitted to backend
     assert res["httpTransmitted"] is True

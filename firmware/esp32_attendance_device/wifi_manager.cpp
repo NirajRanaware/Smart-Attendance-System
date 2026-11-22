@@ -61,7 +61,6 @@ void WiFiManager::maintainConnection() {
         if (now - _lastReconnectAttempt >= WIFI_RETRY_INTERVAL) {
             _lastReconnectAttempt = now;
             DEBUG_PRINTLN("[WIFI] Attempting auto-reconnection to " + String(WIFI_SSID) + "...");
-            WiFi.disconnect();
             WiFi.reconnect();
         }
     } else {

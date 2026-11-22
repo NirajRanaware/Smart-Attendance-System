@@ -97,7 +97,23 @@ Install the following libraries via the Arduino Library Manager or PlatformIO:
 
 ## 5. Configuration Steps
 
-Before uploading the firmware, open `config.h` and configure your local environment settings:
+### 5.1 First-Time Setup (Clean Clone)
+The firmware repository tracks a clean template file (`config.example.h`). The local configuration file (`config.h`) contains private network credentials and is ignored by Git to prevent accidental credential leakage.
+
+To configure your device:
+1. Open PowerShell and navigate to the firmware directory:
+   ```powershell
+   cd firmware\esp32_attendance_device
+   ```
+2. Copy the template to create your local `config.h`:
+   ```powershell
+   Copy-Item config.example.h config.h
+   ```
+3. Open `config.h` in your editor and configure your local environment settings.
+4. **Never commit or upload `config.h` to version control.** It is automatically excluded by `.gitignore`.
+
+### 5.2 Required Parameters in config.h
+Before uploading the firmware, configure your local environment settings in `config.h`:
 
 ```cpp
 // 1. Wi-Fi Settings (2.4 GHz only)
@@ -214,5 +230,5 @@ The firmware communicates directly with the Flask backend's official scan endpoi
 | **OLED display is completely black** | Incorrect I2C address or wiring | Verify SDA $\rightarrow$ GPIO 21 and SCL $\rightarrow$ GPIO 22. In `config.h`, check if OLED address is `0x3C` or `0x3D`. |
 | **Serial shows `MFRC522 Version: 0x00` or `0xFF`** | SPI wiring error or low voltage | Ensure RC522 VCC is connected to **3.3V** (not 5V). Double-check SCK (18), MISO (19), MOSI (23), and SS (5). |
 | **Wi-Fi connection times out** | 5 GHz network or weak signal | Ensure the Wi-Fi router broadcasts a 2.4 GHz SSID. ESP32 does not support 5 GHz networks. |
-| **Server Error: HTTP 401 Unauthorized** | Backend `LOGIN_DISABLED=False` | The backend requires admin session auth or `LOGIN_DISABLED=True` in development/hardware mode. |
+| **Server Error: HTTP 401 Unauthorized** | Device Authentication Failed | 1. Confirm `DEVICE_ID` matches your configured device identifier.<br>2. Confirm `DEVICE_API_KEY` meets the minimum 32-character requirement.<br>3. Confirm backend `DEVICE_API_KEYS` mapping in `.env` / environment contains this `DEVICE_ID` and exact matching key.<br>4. Confirm the ESP32 can reach the Flask server over the LAN.<br>5. Never disable authentication or CSRF controls (`LOGIN_DISABLED=True` is strictly prohibited). |
 | **Server Error: Connection Refused / Timeout** | Wrong server IP or firewall | Ensure PC and ESP32 are on the same Wi-Fi subnet. Verify PC firewall allows incoming connections on port 5000. |

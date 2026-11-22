@@ -37,6 +37,13 @@ bool RFIDScanner::begin() {
     return true;
 }
 
+String RFIDScanner::maskUid(const String& uid) {
+    if (uid.length() <= 4) {
+        return "****";
+    }
+    return uid.substring(0, 2) + "****" + uid.substring(uid.length() - 2);
+}
+
 bool RFIDScanner::isValidUid(const String& uid) {
     // 1. Length validation matching backend API contract: [4, 50] characters
     // Hardware MIFARE Classic UIDs are typically 8 hex characters (4 bytes)
@@ -89,7 +96,7 @@ bool RFIDScanner::readCard(String& outUid) {
 
     // 4. Strict local UID validation before any debounce or transmission
     if (!isValidUid(currentUid)) {
-        DEBUG_PRINTLN("[RFID] ERROR: Corrupted or invalid UID format rejected: " + currentUid);
+        DEBUG_PRINTLN("[RFID] ERROR: Corrupted or invalid UID format rejected: " + maskUid(currentUid));
         haltCard();
         return false;
     }
@@ -125,7 +132,7 @@ bool RFIDScanner::readCard(String& outUid) {
     _lastUid = currentUid;
     outUid = currentUid;
 
-    DEBUG_PRINTLN("[RFID] Valid card detected: " + outUid);
+    DEBUG_PRINTLN("[RFID] Valid card detected: " + maskUid(outUid));
 
     // 7. Halt card to end communication cycle and stop crypto cipher
     haltCard();

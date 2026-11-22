@@ -414,22 +414,63 @@ TEST_CASE(API_AuthPreCheck_EmptyDeviceApiKeyAbortsLocally) {
     ASSERT_EQ(SCAN_OUTCOME_DEVICE_AUTH_ERROR, resp.outcome);
     ASSERT_EQ(401, resp.httpCode);
     ASSERT_STR_EQ("DEVICE_AUTH_ERROR", resp.scanResult.c_str());
+    ASSERT_STR_EQ("Missing DEVICE_ID or DEVICE_API_KEY in firmware config", resp.message.c_str());
     // Zero network requests initiated
     ASSERT_EQ(0, mockHttpGetPostCount());
 }
 
-TEST_CASE(API_AuthPreCheck_ShortApiKeyTransmittedAndRejectedByBackend) {
+TEST_CASE(API_AuthPreCheck_SingleCharApiKeyAbortsLocally) {
     setupApiTest();
-    // Key is non-empty but shorter than 32 chars (e.g. 10 chars)
-    g_mock_device_api_key = "short_key!";
-    mockHttpSetResponse(401, "{\"error\":\"Unauthorized\",\"message\":\"Key too short\"}");
+    g_mock_device_api_key = "x"; // 1-character key
 
     ScanResponse resp = apiClient.sendScan("1A2B3C4D");
 
-    // Per production code: strlen(DEVICE_API_KEY) > 0 proceeds to transport,
-    // and backend rejects with HTTP 401 which maps to SCAN_OUTCOME_DEVICE_AUTH_ERROR
-    ASSERT_EQ(1, mockHttpGetPostCount());
-    ASSERT_STR_EQ("short_key!", mockHttpGetHeader("X-API-Key").c_str());
     ASSERT_EQ(SCAN_OUTCOME_DEVICE_AUTH_ERROR, resp.outcome);
     ASSERT_EQ(401, resp.httpCode);
+    ASSERT_STR_EQ("DEVICE_AUTH_ERROR", resp.scanResult.c_str());
+    ASSERT_STR_EQ("DEVICE_API_KEY must be at least 32 characters", resp.message.c_str());
+    // Zero network requests initiated
+    ASSERT_EQ(0, mockHttpGetPostCount());
+}
+
+TEST_CASE(API_AuthPreCheck_31CharApiKeyAbortsLocally) {
+    setupApiTest();
+    g_mock_device_api_key = "1234567890123456789012345678901"; // Exactly 31 characters
+
+    ScanResponse resp = apiClient.sendScan("1A2B3C4D");
+
+    ASSERT_EQ(SCAN_OUTCOME_DEVICE_AUTH_ERROR, resp.outcome);
+    ASSERT_EQ(401, resp.httpCode);
+    ASSERT_STR_EQ("DEVICE_AUTH_ERROR", resp.scanResult.c_str());
+    ASSERT_STR_EQ("DEVICE_API_KEY must be at least 32 characters", resp.message.c_str());
+    // Zero network requests initiated
+    ASSERT_EQ(0, mockHttpGetPostCount());
+}
+
+TEST_CASE(API_AuthPreCheck_Exactly32CharApiKeyPassesLocally) {
+    setupApiTest();
+    g_mock_device_api_key = "12345678901234567890123456789012"; // Exactly 32 characters
+    mockHttpSetResponse(201, "{\"scan_result\":\"SUCCESS\",\"student\":{\"roll_number\":\"101\",\"student_name\":\"Alice\"}}");
+
+    ScanResponse resp = apiClient.sendScan("1A2B3C4D");
+
+    // Successfully sent over HTTP
+    ASSERT_EQ(1, mockHttpGetPostCount());
+    ASSERT_STR_EQ("12345678901234567890123456789012", mockHttpGetHeader("X-API-Key").c_str());
+    ASSERT_EQ(SCAN_OUTCOME_SUCCESS, resp.outcome);
+    ASSERT_EQ(201, resp.httpCode);
+}
+
+TEST_CASE(API_AuthPreCheck_LongerValidKeyPassesLocally) {
+    setupApiTest();
+    g_mock_device_api_key = "secure_token_with_length_greater_than_32_chars!"; // 47 characters
+    mockHttpSetResponse(201, "{\"scan_result\":\"SUCCESS\",\"student\":{\"roll_number\":\"101\",\"student_name\":\"Alice\"}}");
+
+    ScanResponse resp = apiClient.sendScan("1A2B3C4D");
+
+    // Successfully sent over HTTP
+    ASSERT_EQ(1, mockHttpGetPostCount());
+    ASSERT_STR_EQ("secure_token_with_length_greater_than_32_chars!", mockHttpGetHeader("X-API-Key").c_str());
+    ASSERT_EQ(SCAN_OUTCOME_SUCCESS, resp.outcome);
+    ASSERT_EQ(201, resp.httpCode);
 }

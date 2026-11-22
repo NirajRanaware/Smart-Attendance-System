@@ -45,6 +45,16 @@ ScanResponse AttendanceApiClient::sendScan(const String& cardUid) {
         return resp;
     }
 
+    if (strlen(DEVICE_API_KEY) < 32) {
+        DEBUG_PRINTLN("[API] ERROR: DEVICE_API_KEY is too short (minimum 32 characters required).");
+        resp.outcome = SCAN_OUTCOME_DEVICE_AUTH_ERROR;
+        resp.httpCode = 401;
+        resp.scanResult = "DEVICE_AUTH_ERROR";
+        resp.error = "Device Auth Error";
+        resp.message = "DEVICE_API_KEY must be at least 32 characters";
+        return resp;
+    }
+
     // 2. Verify Wi-Fi connectivity before attempting HTTP
     if (WiFi.status() != WL_CONNECTED) {
         DEBUG_PRINTLN("[API] ERROR: Cannot send scan. Wi-Fi is disconnected.");

@@ -48,3 +48,7 @@ build/
 *.exe
 *.obj
 *.o
+
+# ESP32 firmware local configuration (contains private credentials)
+firmware/esp32_attendance_device/config.h
+

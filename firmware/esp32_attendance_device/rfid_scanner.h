@@ -49,6 +49,15 @@ public:
     String getLastUid() const { return _lastUid; }
 
     /**
+     * @brief Masks an RFID UID string for diagnostic logging to protect privacy.
+     * Example: "A1B2C3D4" -> "A1****D4", "1234" -> "****"
+     * 
+     * @param uid Full hexadecimal UID string.
+     * @return Sanitized/masked string safe for production serial logs.
+     */
+    static String maskUid(const String& uid);
+
+    /**
      * @brief Validates that a candidate UID string satisfies backend API rules
      * and hardware integrity constraints:
      * - Must not be empty.

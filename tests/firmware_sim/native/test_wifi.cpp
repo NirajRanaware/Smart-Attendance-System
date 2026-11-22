@@ -166,3 +166,28 @@ TEST_CASE(WiFi_MaintainConnectionMillisRollover) {
     wifi.maintainConnection();
     ASSERT_EQ(startReconnects + 1, WiFi.reconnectCallCount); // Unsigned math correctly triggers reconnect!
 }
+
+TEST_CASE(WiFi_MaintainConnectionNoRedundantDisconnect) {
+    setupWifiTest();
+    WiFi.mockSetAutoConnect(true);
+
+    // Initial connection calls disconnect(true) once during init
+    mockSetMillis(0);
+    wifi.connectBlocking(2000);
+    int initialDisconnectCount = WiFi.disconnectCallCount;
+    ASSERT_EQ(1, initialDisconnectCount);
+
+    // Connection drops
+    mockSetMillis(2000);
+    WiFi.mockSetStatus(WL_DISCONNECTED);
+    WiFi.mockSetAutoConnect(false);
+    wifi.maintainConnection();
+
+    // Advance past retry interval (10,000ms)
+    mockSetMillis(12000);
+    wifi.maintainConnection();
+
+    // Verify reconnect() was called, but disconnect() was NOT called again
+    ASSERT_EQ(1, WiFi.reconnectCallCount);
+    ASSERT_EQ(initialDisconnectCount, WiFi.disconnectCallCount);
+}
