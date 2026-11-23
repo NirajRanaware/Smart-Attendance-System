@@ -99,6 +99,48 @@ def resolve_service_account_file() -> str:
     return str(CREDENTIALS_DIR / "service_account.json")
 
 
+def resolve_development_database_path() -> Path:
+    """
+    Resolves the SQLite database path for the development environment.
+    - If DATABASE_PATH environment variable is set (non-empty, non-whitespace):
+      - Strips leading and trailing whitespace.
+      - If path specifies a directory (ends with separator or is an existing directory),
+        raises ValueError to prevent invalid database connections.
+      - If path is absolute, resolves and returns it.
+      - If path is relative, resolves it relative to BASE_DIR (project root), not CWD.
+      - Fails clearly on invalid paths; never silently falls back to default.
+    - If DATABASE_PATH is not set, empty, or whitespace-only:
+      - Preserves default development database: BASE_DIR / "database" / "attendance.db".
+    """
+    raw_env = os.environ.get("DATABASE_PATH")
+    if raw_env is None:
+        return DATABASE_DIR / "attendance.db"
+
+    cleaned = raw_env.strip()
+    if not cleaned:
+        return DATABASE_DIR / "attendance.db"
+
+    if cleaned.endswith(("/", "\\")):
+        raise ValueError(
+            f"Invalid DATABASE_PATH '{cleaned}': path points to a directory, "
+            "but a SQLite database file path is required."
+        )
+
+    override_path = Path(cleaned)
+    if override_path.is_absolute():
+        resolved = override_path.resolve()
+    else:
+        resolved = (BASE_DIR / override_path).resolve()
+
+    if resolved.is_dir():
+        raise ValueError(
+            f"Invalid DATABASE_PATH '{cleaned}': resolved path '{resolved}' is an existing directory, "
+            "but a SQLite database file path is required."
+        )
+
+    return resolved
+
+
 class Config:
     """Base configuration settings."""
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-smart-attendance-2026")
@@ -137,13 +179,14 @@ class Config:
 class DevelopmentConfig(Config):
     """Development environment configuration."""
     DEBUG = True
-    DATABASE_PATH = DATABASE_DIR / "attendance.db"
+    DATABASE_PATH = resolve_development_database_path()
     SESSION_COOKIE_SECURE = False
 
 class ProductionConfig(Config):
     """Production environment configuration with strict security requirements."""
     DEBUG = False
     TESTING = False
+    DATABASE_PATH = DATABASE_DIR / "attendance.db"
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -203,5 +246,8 @@ def get_config(env_name=None):
     if isinstance(env_name, str) and env_name.lower() == "production":
         ProductionConfig.validate_production_secret()
         return ProductionConfig
+
+    # Refresh DevelopmentConfig.DATABASE_PATH from current environment at retrieval
+    DevelopmentConfig.DATABASE_PATH = resolve_development_database_path()
         
     return CONFIG_MAP.get(env_name, DevelopmentConfig)

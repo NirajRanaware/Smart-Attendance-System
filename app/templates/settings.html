@@ -86,6 +86,123 @@
         </section>
     </div>
 
+    <!-- Google Sheets Synchronization Section -->
+    <section class="settings-card sheets-sync-card" id="card-sheets-sync">
+        <div class="card-header sheets-sync-header">
+            <div class="sheets-header-left">
+                <h2 class="card-title">&#x1F4CA; Google Sheets Synchronization</h2>
+                <p class="card-subtitle-text">Real-time Google Sheets integration telemetry and outbox queue monitoring.</p>
+            </div>
+            <div class="sheets-header-right">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-sheets-sync" title="Refresh Google Sheets Synchronization Status">
+                    <span class="btn-icon" id="sheets-refresh-icon">&#x21BB;</span>
+                    <span id="sheets-refresh-text">Refresh Status</span>
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Non-disruptive Error Banner -->
+            <div class="sheets-error-banner" id="sheets-sync-error-banner" style="display: none;" role="alert">
+                <span class="sheets-error-icon">&#x26A0;&#xFE0F;</span>
+                <span class="sheets-error-text" id="sheets-sync-error-text">Failed to fetch synchronization status.</span>
+            </div>
+
+            <!-- Configuration & Integration Info -->
+            <div class="info-list sheets-info-list">
+                <div class="info-row">
+                    <span class="info-label">Synchronization Status:</span>
+                    <span class="info-value" id="sheets-config-sync-status">
+                        <span class="badge badge-secondary">Checking...</span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Credentials Configuration:</span>
+                    <span class="info-value" id="sheets-config-creds-status">
+                        <span class="badge badge-secondary">Checking...</span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Spreadsheet Configuration:</span>
+                    <span class="info-value" id="sheets-config-sheet-status">
+                        <span class="badge badge-secondary">Checking...</span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Successful Synchronization:</span>
+                    <span class="info-value font-mono" id="sheets-last-sync-time">Checking...</span>
+                </div>
+            </div>
+
+            <!-- Outbox Queue Telemetry Metrics -->
+            <div class="sheets-metrics-header">
+                <h3 class="sheets-metrics-title">&#x1F4E6; Outbox Queue Metrics</h3>
+                <span class="sheets-metrics-caption">Transactional Outbox buffer telemetry</span>
+            </div>
+
+            <div class="stats-grid-6">
+                <!-- 1. Pending -->
+                <div class="stat-card stat-card-compact" id="card-metric-pending">
+                    <div class="stat-content">
+                        <span class="stat-title">PENDING</span>
+                        <span class="stat-value text-warning" id="sheets-metric-pending">--</span>
+                        <span class="stat-subtext">Awaiting sync</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-pending">&#x23F3;</div>
+                </div>
+
+                <!-- 2. Synced -->
+                <div class="stat-card stat-card-compact" id="card-metric-synced">
+                    <div class="stat-content">
+                        <span class="stat-title">SYNCED</span>
+                        <span class="stat-value text-success" id="sheets-metric-synced">--</span>
+                        <span class="stat-subtext">Successfully pushed</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-synced">&#x2705;</div>
+                </div>
+
+                <!-- 3. In-Flight -->
+                <div class="stat-card stat-card-compact" id="card-metric-inflight">
+                    <div class="stat-content">
+                        <span class="stat-title">IN-FLIGHT</span>
+                        <span class="stat-value text-info" id="sheets-metric-inflight">--</span>
+                        <span class="stat-subtext">Currently leased</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-inflight">&#x1F504;</div>
+                </div>
+
+                <!-- 4. Dead-Letter -->
+                <div class="stat-card stat-card-compact" id="card-metric-deadletter">
+                    <div class="stat-content">
+                        <span class="stat-title">DEAD-LETTER</span>
+                        <span class="stat-value text-danger" id="sheets-metric-deadletter">--</span>
+                        <span class="stat-subtext">Requires review</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-deadletter">&#x1F480;</div>
+                </div>
+
+                <!-- 5. Permanent Failure -->
+                <div class="stat-card stat-card-compact" id="card-metric-failed">
+                    <div class="stat-content">
+                        <span class="stat-title">PERMANENT FAILURE</span>
+                        <span class="stat-value text-danger" id="sheets-metric-failed">--</span>
+                        <span class="stat-subtext">Retries exhausted</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-failed">&#x26A0;&#xFE0F;</div>
+                </div>
+
+                <!-- 6. Total Queued -->
+                <div class="stat-card stat-card-compact" id="card-metric-total">
+                    <div class="stat-content">
+                        <span class="stat-title">TOTAL QUEUED</span>
+                        <span class="stat-value" id="sheets-metric-total">--</span>
+                        <span class="stat-subtext">All queue records</span>
+                    </div>
+                    <div class="stat-icon-badge stat-icon-total">&#x1F4CA;</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Database Management Section -->
     <section class="database-management-section" id="database-management-section">
         <div class="section-header-row">

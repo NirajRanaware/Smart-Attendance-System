@@ -18,6 +18,24 @@
     let statDbPath = null;
     let btnRefreshStats = null;
 
+    // Google Sheets DOM Elements
+    let btnRefreshSheetsSync = null;
+    let sheetsRefreshIcon = null;
+    let sheetsRefreshText = null;
+    let sheetsSyncErrorBanner = null;
+    let sheetsSyncErrorText = null;
+    let sheetsConfigSyncStatus = null;
+    let sheetsConfigCredsStatus = null;
+    let sheetsConfigSheetStatus = null;
+    let sheetsLastSyncTime = null;
+    let sheetsMetricPending = null;
+    let sheetsMetricSynced = null;
+    let sheetsMetricInflight = null;
+    let sheetsMetricDeadletter = null;
+    let sheetsMetricFailed = null;
+    let sheetsMetricTotal = null;
+    let isFetchingSheets = false;
+
     // Modal DOM Elements
     let modalBackdrop = null;
     let btnOpenModal = null;
@@ -52,10 +70,33 @@
         confirmBtnText = document.getElementById("confirm-btn-text");
         confirmBtnIcon = document.getElementById("confirm-btn-icon");
 
+        // Google Sheets DOM references
+        btnRefreshSheetsSync = document.getElementById("btn-refresh-sheets-sync");
+        sheetsRefreshIcon = document.getElementById("sheets-refresh-icon");
+        sheetsRefreshText = document.getElementById("sheets-refresh-text");
+        sheetsSyncErrorBanner = document.getElementById("sheets-sync-error-banner");
+        sheetsSyncErrorText = document.getElementById("sheets-sync-error-text");
+        sheetsConfigSyncStatus = document.getElementById("sheets-config-sync-status");
+        sheetsConfigCredsStatus = document.getElementById("sheets-config-creds-status");
+        sheetsConfigSheetStatus = document.getElementById("sheets-config-sheet-status");
+        sheetsLastSyncTime = document.getElementById("sheets-last-sync-time");
+        sheetsMetricPending = document.getElementById("sheets-metric-pending");
+        sheetsMetricSynced = document.getElementById("sheets-metric-synced");
+        sheetsMetricInflight = document.getElementById("sheets-metric-inflight");
+        sheetsMetricDeadletter = document.getElementById("sheets-metric-deadletter");
+        sheetsMetricFailed = document.getElementById("sheets-metric-failed");
+        sheetsMetricTotal = document.getElementById("sheets-metric-total");
+
         // Event Listeners
         if (btnRefreshStats) {
             btnRefreshStats.addEventListener("click", () => {
                 fetchDatabaseStats(true);
+            });
+        }
+
+        if (btnRefreshSheetsSync) {
+            btnRefreshSheetsSync.addEventListener("click", () => {
+                fetchSheetsSyncStatus(true);
             });
         }
 
@@ -97,8 +138,9 @@
             btnConfirmClear.addEventListener("click", handleClearDataSubmit);
         }
 
-        // Initial fetch of database stats
+        // Initial fetch of database stats and sheets status
         fetchDatabaseStats(false);
+        fetchSheetsSyncStatus(false);
     }
 
     /**
@@ -143,6 +185,180 @@
                 btnRefreshStats.disabled = false;
                 btnRefreshStats.classList.remove("loading");
             }
+        }
+    }
+
+    /**
+     * Renders a badge HTML string based on boolean/null status.
+     * @param {boolean|null} status - Current status flag
+     * @param {string} trueLabel - Label when true
+     * @param {string} falseLabel - Label when false
+     * @param {string} trueClass - CSS badge class when true
+     * @param {string} falseClass - CSS badge class when false
+     * @returns {string} Safe HTML string for badge
+     */
+    function renderSheetsBadge(status, trueLabel, falseLabel, trueClass = "badge-success", falseClass = "badge-secondary") {
+        if (status === true) {
+            return `<span class="badge ${trueClass}">${trueLabel}</span>`;
+        } else if (status === false) {
+            return `<span class="badge ${falseClass}">${falseLabel}</span>`;
+        } else {
+            return `<span class="badge badge-warning">Unknown</span>`;
+        }
+    }
+
+    /**
+     * Fetches live Google Sheets synchronization status from GET /api/admin/sheets-sync/status.
+     * Updates configuration status pills, last sync timestamp, and outbox queue metrics.
+     * @param {boolean} showFeedback - Whether to show a toast message upon completion
+     */
+    async function fetchSheetsSyncStatus(showFeedback = false) {
+        if (isFetchingSheets) return;
+        isFetchingSheets = true;
+
+        if (btnRefreshSheetsSync) {
+            btnRefreshSheetsSync.disabled = true;
+            btnRefreshSheetsSync.classList.add("loading");
+        }
+        if (sheetsRefreshIcon) {
+            sheetsRefreshIcon.textContent = "\u23F3";
+        }
+        if (sheetsRefreshText) {
+            sheetsRefreshText.textContent = "Refreshing...";
+        }
+
+        try {
+            const res = await ApiClient.get("/api/admin/sheets-sync/status");
+            if (res.success && res.data && res.data.success !== false) {
+                const data = res.data;
+
+                // 1. Sync Configuration
+                if (sheetsConfigSyncStatus) {
+                    sheetsConfigSyncStatus.innerHTML = renderSheetsBadge(
+                        data.sync_enabled,
+                        "Enabled",
+                        "Disabled",
+                        "badge-success",
+                        "badge-secondary"
+                    );
+                }
+
+                // 2. Credentials Configuration
+                if (sheetsConfigCredsStatus) {
+                    sheetsConfigCredsStatus.innerHTML = renderSheetsBadge(
+                        data.credentials_configured,
+                        "\u2714 Configured",
+                        "\u2716 Not Configured",
+                        "badge-success",
+                        "badge-danger"
+                    );
+                }
+
+                // 3. Spreadsheet Configuration
+                if (sheetsConfigSheetStatus) {
+                    sheetsConfigSheetStatus.innerHTML = renderSheetsBadge(
+                        data.spreadsheet_id_configured,
+                        "\u2714 Configured",
+                        "\u2716 Not Configured",
+                        "badge-success",
+                        "badge-danger"
+                    );
+                }
+
+                // 4. Last Synchronization Timestamp
+                if (sheetsLastSyncTime) {
+                    if (data.last_sync_timestamp) {
+                        if (window.AppUtils && typeof window.AppUtils.formatDateTime === "function") {
+                            sheetsLastSyncTime.textContent = window.AppUtils.formatDateTime(data.last_sync_timestamp);
+                        } else {
+                            try {
+                                const d = new Date(data.last_sync_timestamp);
+                                sheetsLastSyncTime.textContent = isNaN(d.getTime()) ? data.last_sync_timestamp : d.toLocaleString();
+                            } catch {
+                                sheetsLastSyncTime.textContent = data.last_sync_timestamp;
+                            }
+                        }
+                    } else {
+                        sheetsLastSyncTime.textContent = "No successful synchronization recorded yet.";
+                    }
+                }
+
+                // 5. Outbox Queue Telemetry Metrics
+                const qs = data.queue_stats || {};
+                const formatMetric = (val) => {
+                    if (typeof val === "number") return val.toLocaleString();
+                    if (val !== null && val !== undefined && val !== "") return String(val);
+                    return "--";
+                };
+
+                if (sheetsMetricPending) sheetsMetricPending.textContent = formatMetric(qs.pending);
+                if (sheetsMetricSynced) sheetsMetricSynced.textContent = formatMetric(qs.synced);
+                if (sheetsMetricInflight) sheetsMetricInflight.textContent = formatMetric(qs.in_progress !== undefined ? qs.in_progress : qs.in_flight);
+                if (sheetsMetricDeadletter) sheetsMetricDeadletter.textContent = formatMetric(qs.dead_letter);
+                if (sheetsMetricFailed) sheetsMetricFailed.textContent = formatMetric(qs.failed !== undefined ? qs.failed : qs.permanent_failure);
+                if (sheetsMetricTotal) sheetsMetricTotal.textContent = formatMetric(qs.total);
+
+                // Hide error banner on successful fetch
+                if (sheetsSyncErrorBanner) {
+                    sheetsSyncErrorBanner.style.display = "none";
+                }
+
+                if (showFeedback && typeof window.showToast === "function") {
+                    window.showToast("Google Sheets status updated successfully.", "success", 2500);
+                }
+            } else {
+                const errMsg = (res.data && (res.data.message || res.data.error)) || res.message || "Failed to retrieve Google Sheets synchronization status.";
+                if (sheetsSyncErrorBanner && sheetsSyncErrorText) {
+                    sheetsSyncErrorText.textContent = errMsg;
+                    sheetsSyncErrorBanner.style.display = "flex";
+                }
+                if (sheetsConfigSyncStatus) sheetsConfigSyncStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+                if (sheetsConfigCredsStatus) sheetsConfigCredsStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+                if (sheetsConfigSheetStatus) sheetsConfigSheetStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+                if (sheetsLastSyncTime) sheetsLastSyncTime.textContent = "--";
+                if (sheetsMetricPending) sheetsMetricPending.textContent = "--";
+                if (sheetsMetricSynced) sheetsMetricSynced.textContent = "--";
+                if (sheetsMetricInflight) sheetsMetricInflight.textContent = "--";
+                if (sheetsMetricDeadletter) sheetsMetricDeadletter.textContent = "--";
+                if (sheetsMetricFailed) sheetsMetricFailed.textContent = "--";
+                if (sheetsMetricTotal) sheetsMetricTotal.textContent = "--";
+
+                if (showFeedback && typeof window.showToast === "function") {
+                    window.showToast(errMsg, "error");
+                }
+            }
+        } catch (err) {
+            const errMsg = `Error connecting to sheets status API: ${err.message}`;
+            if (sheetsSyncErrorBanner && sheetsSyncErrorText) {
+                sheetsSyncErrorText.textContent = errMsg;
+                sheetsSyncErrorBanner.style.display = "flex";
+            }
+            if (sheetsConfigSyncStatus) sheetsConfigSyncStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+            if (sheetsConfigCredsStatus) sheetsConfigCredsStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+            if (sheetsConfigSheetStatus) sheetsConfigSheetStatus.innerHTML = '<span class="badge badge-warning">Unavailable</span>';
+            if (sheetsLastSyncTime) sheetsLastSyncTime.textContent = "--";
+            if (sheetsMetricPending) sheetsMetricPending.textContent = "--";
+            if (sheetsMetricSynced) sheetsMetricSynced.textContent = "--";
+            if (sheetsMetricInflight) sheetsMetricInflight.textContent = "--";
+            if (sheetsMetricDeadletter) sheetsMetricDeadletter.textContent = "--";
+            if (sheetsMetricFailed) sheetsMetricFailed.textContent = "--";
+            if (sheetsMetricTotal) sheetsMetricTotal.textContent = "--";
+
+            if (showFeedback && typeof window.showToast === "function") {
+                window.showToast(errMsg, "error");
+            }
+        } finally {
+            if (btnRefreshSheetsSync) {
+                btnRefreshSheetsSync.disabled = false;
+                btnRefreshSheetsSync.classList.remove("loading");
+            }
+            if (sheetsRefreshIcon) {
+                sheetsRefreshIcon.textContent = "\u21BB";
+            }
+            if (sheetsRefreshText) {
+                sheetsRefreshText.textContent = "Refresh Status";
+            }
+            isFetchingSheets = false;
         }
     }
 
