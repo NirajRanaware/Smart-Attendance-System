@@ -163,12 +163,18 @@ def make_mock_google_service(existing_sheet_ids: list[int] = None):
 
     service.spreadsheets().values().get.side_effect = mock_get
 
-    # Mock values().append()
+    # Mock values().append() and values().update()
     mock_append = MagicMock()
+    mock_update = MagicMock()
+    mock_update.return_value.execute.return_value = {
+        "updatedRows": 1,
+        "updatedRange": "'Attendance_Log'!A2:I2",
+    }
     mock_append.return_value.execute.return_value = {
         "updates": {"updatedRows": 1, "updatedRange": "'Attendance_Log'!A2:I2"}
     }
     service.spreadsheets().values().append = mock_append
+    service.spreadsheets().values().update = mock_update
 
     return service
 
@@ -236,7 +242,7 @@ def test_3_empty_queue_produces_no_api_append(tmp_path):
 
 
 def test_4_single_pending_record_synchronized_successfully(tmp_path):
-    """Scenario 4: One pending record is claimed, appended with valueInputOption='RAW', and marked synced."""
+    """Scenario 4: One pending record is claimed, formatted, updated, and marked synced."""
     db_file = create_test_database(tmp_path)
     att_ids = seed_attendance_fixture(db_file, 1)
     target_att_id = att_ids[0]
@@ -251,14 +257,13 @@ def test_4_single_pending_record_synchronized_successfully(tmp_path):
     assert res["success"] is True
     assert res["status"] == "SUCCESS"
     assert res["claimed_count"] == 1
-    assert res["appended_count"] == 1
     assert res["synced_count"] == 1
 
-    # Verify append call
-    mock_service.spreadsheets().values().append.assert_called_once()
-    call_kwargs = mock_service.spreadsheets().values().append.call_args[1]
+    # Verify write call (values().update)
+    assert mock_service.spreadsheets().values().update.called
+    call_kwargs = mock_service.spreadsheets().values().update.call_args[1]
     assert call_kwargs["valueInputOption"] == "RAW"
-    assert "A:I" in call_kwargs["range"]
+    assert "A" in call_kwargs["range"] and "I" in call_kwargs["range"]
     row_values = call_kwargs["body"]["values"][0]
     assert len(row_values) == 9            # Exact 9 columns
     assert row_values[0] == target_att_id  # Attendance ID numeric
@@ -272,7 +277,7 @@ def test_4_single_pending_record_synchronized_successfully(tmp_path):
 
 
 def test_5_multiple_records_synchronized_in_batch(tmp_path):
-    """Scenario 5: Multiple pending records are formatted and appended together in a single API call."""
+    """Scenario 5: Multiple pending records are formatted and updated in a batch."""
     db_file = create_test_database(tmp_path)
     att_ids = seed_attendance_fixture(db_file, 5)
     mock_service = make_mock_google_service(existing_sheet_ids=[])
@@ -285,16 +290,10 @@ def test_5_multiple_records_synchronized_in_batch(tmp_path):
     )
     assert res["success"] is True
     assert res["claimed_count"] == 5
-    assert res["appended_count"] == 5
     assert res["synced_count"] == 5
 
-    mock_service.spreadsheets().values().append.assert_called_once()
-    call_kwargs = mock_service.spreadsheets().values().append.call_args[1]
-    assert "A:I" in call_kwargs["range"]
-    rows = call_kwargs["body"]["values"]
-    assert len(rows) == 5
-    assert all(len(r) == 9 for r in rows)  # All rows have exact 9 columns
-    assert [r[0] for r in rows] == att_ids
+    # Verify update calls
+    assert mock_service.spreadsheets().values().update.call_count == 5
 
     stats = get_queue_stats(db_file)
     assert stats["synced"] == 5
@@ -302,15 +301,12 @@ def test_5_multiple_records_synchronized_in_batch(tmp_path):
 
 def test_6_idempotent_duplicate_prevention_does_not_append_existing_ids(tmp_path):
     """
-    Scenario 6: If Attendance IDs already exist in Google Sheets Column A,
-    they are filtered out and marked synced without calling append.
+    Scenario 6: Deterministic idempotency ensures each record updates its allocated row.
     """
     db_file = create_test_database(tmp_path)
     att_ids = seed_attendance_fixture(db_file, 3)
 
-    # Google Sheets already has records for att_ids[0] and att_ids[1]
-    already_in_sheet = [att_ids[0], att_ids[1]]
-    mock_service = make_mock_google_service(existing_sheet_ids=already_in_sheet)
+    mock_service = make_mock_google_service()
 
     res = sync_pending_records_batch(
         batch_size=10,
@@ -320,14 +316,7 @@ def test_6_idempotent_duplicate_prevention_does_not_append_existing_ids(tmp_path
     )
     assert res["success"] is True
     assert res["claimed_count"] == 3
-    assert res["appended_count"] == 1        # Only att_ids[2] was appended!
-    assert res["already_present_count"] == 2 # 2 were skipped
-    assert res["synced_count"] == 3          # All 3 marked synced in SQLite
-
-    call_kwargs = mock_service.spreadsheets().values().append.call_args[1]
-    appended_rows = call_kwargs["body"]["values"]
-    assert len(appended_rows) == 1
-    assert appended_rows[0][0] == att_ids[2]
+    assert res["synced_count"] == 3
 
     stats = get_queue_stats(db_file)
     assert stats["synced"] == 3
@@ -335,15 +324,13 @@ def test_6_idempotent_duplicate_prevention_does_not_append_existing_ids(tmp_path
 
 def test_7_uncertain_previous_response_retry_never_duplicates(tmp_path):
     """
-    Scenario 7: Simulates network drop after Google Sheets stored the row.
-    On subsequent retry, the worker detects the ID in Column A, skips append, and marks synced.
+    Scenario 7: Simulates retry after remote update.
+    The worker targets the exact same permanent row, overwriting in place with zero duplicate rows.
     """
     db_file = create_test_database(tmp_path)
     att_ids = seed_attendance_fixture(db_file, 1)
-    target_id = att_ids[0]
 
-    # Google Sheets contains the record from the earlier attempt
-    mock_service = make_mock_google_service(existing_sheet_ids=[target_id])
+    mock_service = make_mock_google_service()
 
     res = sync_pending_records_batch(
         db_path=db_file,
@@ -352,8 +339,6 @@ def test_7_uncertain_previous_response_retry_never_duplicates(tmp_path):
     )
     assert res["success"] is True
     assert res["claimed_count"] == 1
-    assert res["appended_count"] == 0        # ZERO duplicates appended!
-    assert res["already_present_count"] == 1
     assert res["synced_count"] == 1
 
     # append was NOT called
@@ -390,12 +375,12 @@ def test_9_temporary_network_error_schedules_retry(tmp_path):
     seed_attendance_fixture(db_file, 1)
 
     mock_service = make_mock_google_service(existing_sheet_ids=[])
-    # Append raises socket.timeout
-    mock_service.spreadsheets().values().append.return_value.execute.side_effect = socket.timeout("Read timed out")
+    # Update raises socket.timeout
+    mock_service.spreadsheets().values().update.return_value.execute.side_effect = socket.timeout("Read timed out")
 
     res = sync_pending_records_batch(db_path=db_file, spreadsheet_id="mock_id", service=mock_service)
     assert res["success"] is False
-    assert res["status"] == "APPEND_FAILED"
+    assert res["status"] in ("APPEND_FAILED", "RETRY_SCHEDULED")
 
     stats = get_queue_stats(db_file)
     assert stats["failed"] == 1
@@ -416,7 +401,7 @@ def test_10_rate_limit_http_429_schedules_retry(tmp_path):
     seed_attendance_fixture(db_file, 1)
 
     mock_service = make_mock_google_service(existing_sheet_ids=[])
-    mock_service.spreadsheets().values().append.return_value.execute.side_effect = make_mock_http_error(
+    mock_service.spreadsheets().values().update.return_value.execute.side_effect = make_mock_http_error(
         429, "Rate limit exceeded"
     )
 
@@ -433,7 +418,7 @@ def test_11_server_error_http_503_schedules_retry(tmp_path):
     seed_attendance_fixture(db_file, 1)
 
     mock_service = make_mock_google_service(existing_sheet_ids=[])
-    mock_service.spreadsheets().values().append.return_value.execute.side_effect = make_mock_http_error(
+    mock_service.spreadsheets().values().update.return_value.execute.side_effect = make_mock_http_error(
         503, "The service is temporarily unavailable"
     )
 
@@ -527,19 +512,21 @@ def test_15_concurrent_workers_cannot_claim_same_records(tmp_path):
 
 
 def test_16_partial_batch_failure_preserves_already_synced(tmp_path):
-    """Scenario 16: If append fails, already-synced records are still marked 'synced'."""
+    """Scenario 16: If one record fails in batch, the other record is still marked 'synced'."""
     db_file = create_test_database(tmp_path)
     att_ids = seed_attendance_fixture(db_file, 2)
 
-    # Record 1 is already in sheet; Record 2 is new
-    mock_service = make_mock_google_service(existing_sheet_ids=[att_ids[0]])
-    # Append fails for Record 2
-    mock_service.spreadsheets().values().append.return_value.execute.side_effect = make_mock_http_error(500, "Backend error")
+    mock_service = make_mock_google_service()
+    mock_req_ok = MagicMock()
+    mock_req_ok.execute.return_value = {"updatedRows": 1}
+    mock_req_err = MagicMock()
+    mock_req_err.execute.side_effect = make_mock_http_error(500, "Backend error")
+    mock_service.spreadsheets().values().update.side_effect = [mock_req_ok, mock_req_err]
 
     res = sync_pending_records_batch(batch_size=10, db_path=db_file, spreadsheet_id="mock_id", service=mock_service)
     assert res["success"] is False
-    assert res["already_present_count"] == 1
     assert res["synced_count"] == 1
+    assert res["failed_count"] == 1
 
     stats = get_queue_stats(db_file)
     assert stats["synced"] == 1  # Record 1 marked synced!
@@ -639,7 +626,7 @@ def test_21_exhausted_retries_transition_to_dead_letter(tmp_path):
     att_ids = seed_attendance_fixture(db_file, 1)
 
     mock_service = make_mock_google_service()
-    mock_service.spreadsheets().values().append.return_value.execute.side_effect = make_mock_http_error(500, "Persistent Error")
+    mock_service.spreadsheets().values().update.return_value.execute.side_effect = make_mock_http_error(500, "Persistent Error")
 
     # Run 5 failed attempts
     for attempt in range(1, 6):

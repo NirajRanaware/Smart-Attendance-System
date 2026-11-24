@@ -1,0 +1,23 @@
+step 1
+
+cd /d C:\Projects\Smart-Attendance-System
+
+step 2
+
+.venv\Scripts\activate
+
+step3
+
+set GOOGLE_SHEETS_SPREADSHEET_ID=1G2kJ_i4i31Frk4ph5LmcF_RzaGpeStZMttla3bP07PY
+set GOOGLE_SERVICE_ACCOUNT_FILE=C:\Projects\Smart-Attendance-System\credentials\service_account.json
+set GOOGLE_SHEETS_SYNC_ENABLED=true
+
+flask –app app run-sheets-worker
+
+step 4
+
+python run.py
+
+step5  
+
+http://127.0.0.1:5000

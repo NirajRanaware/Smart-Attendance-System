@@ -1,0 +1,196 @@
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:4: trailing whitespace.
+[32m+[m[32m**Document:** Physical Wiring, Pinout, and Assembly Manual[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:5: trailing whitespace.
+[32m+[m[32m**Target Hardware:** ESP32-WROOM-32 (DevKit V1, 30-Pin Variant)[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:6: trailing whitespace.
+[32m+[m[32m**Status:** Approved Provisional Wiring Plan[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:7: trailing whitespace.
+[32m+[m[32m**Last Updated:** 2026-11-24[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:44: trailing whitespace.
+[32m+[m[32mThe RC522 module uses the hardware VSPI bus for high-speed data transfer.[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:65: trailing whitespace.
+[32m+[m[32mThe OLED module communicates over the hardware I2C bus (`Wire.h`) at default address `0x3C`.[m[41m  [m
+docs/hardware/STAGE_10_2_ESP32_WIRING_GUIDE.md:83: trailing whitespace.
+[32m+[m[32mThe active buzzer module includes an onboard switching circuit and internal audio oscillator.[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:5: trailing whitespace.
+[32m+[m[32m**Branch:** `main`[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:6: trailing whitespace.
+[32m+[m[32m**Baseline Commit:** `889ea78bef82e56b5952a1c74338b6e417b2eee8`[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:7: trailing whitespace.
+[32m+[m[32m**Mode:** STRICT READ-ONLY AUDIT & TECHNICAL CORRECTION[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:8: trailing whitespace.
+[32m+[m[32m**Audit Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_10_1A_GPIO_AND_PHYSICAL_MODULE_VERIFICATION.md:9: trailing whitespace.
+[32m+[m[32m**Author:** Hardware Safety & Embedded Systems Audit Team[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:5: trailing whitespace.
+[32m+[m[32m**Branch:** `main`[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:6: trailing whitespace.
+[32m+[m[32m**Baseline Commit:** `889ea78bef82e56b5952a1c74338b6e417b2eee8`[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:7: trailing whitespace.
+[32m+[m[32m**Mode:** READ-ONLY HARDWARE PREFLIGHT AUDIT[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:8: trailing whitespace.
+[32m+[m[32m**Audit Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:9: trailing whitespace.
+[32m+[m[32m**Author:** AI Quality Assurance & Hardware Integration Auditor[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:252: trailing whitespace.
+[32m+[m[41m    [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:396: trailing whitespace.
+[32m+[m[32m1. **Software & Firmware Architecture: 100% PASS.**[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:398: trailing whitespace.
+[32m+[m[32m2. **Integration Readiness: 100% PASS.**[m[41m  [m
+docs/reports/STAGE_10_1_HARDWARE_READINESS_AUDIT.md:400: trailing whitespace.
+[32m+[m[32m3. **Reason for Observations:**[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Branch:** `main`[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Baseline Commit:** `889ea78bef82e56b5952a1c74338b6e417b2eee8`[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**Milestone:** Stage 10.2 — Hardware Wiring Plan & Firmware Configuration Preparation[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:8: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_10_2_HARDWARE_CONFIGURATION_REPORT.md:9: trailing whitespace.
+[32m+[m[32m**Author:** AI Quality Assurance & Embedded Systems Engineer[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Audit Mode:** STRICT READ-ONLY AUDIT[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**Lead Auditor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:113: trailing whitespace.
+[32m+[m[32m               SELECT sync_status, COUNT(*)[m[41m [m
+docs/reports/STAGE_9_7B_12B_DATABASE_QUEUE_ISOLATION_AUDIT_REPORT.md:114: trailing whitespace.
+[32m+[m[32m               FROM sheets_sync_queue[m[41m [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Audit Mode:** STRICT READ-ONLY PREFLIGHT[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**Worker Execution:** PROHIBITED (Zero Worker Runs)[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:8: trailing whitespace.
+[32m+[m[32m**External API:** READ-ONLY / NO WRITES[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:9: trailing whitespace.
+[32m+[m[32m**Lead Auditor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:93: trailing whitespace.
+[32m+[m[32m1. **Worker CLI Command:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:95: trailing whitespace.
+[32m+[m[32m2. **CLI Entry Point:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:101: trailing whitespace.
+[32m+[m[32m3. **Worker Module & Lifecycle:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:105: trailing whitespace.
+[32m+[m[32m4. **Queue Selection & Concurrency Locking:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:113: trailing whitespace.
+[32m+[m[32m7. **Maximum Records Processed Per Execution:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:116: trailing whitespace.
+[32m+[m[32m8. **Retry & Dead-Letter Handling:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:122: trailing whitespace.
+[32m+[m[32m9. **Lease Duration & Recovery:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:124: trailing whitespace.
+[32m+[m[32m10. **Duplicate & Idempotency Protection:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:126: trailing whitespace.
+[32m+[m[32m11. **Formula-Injection Protection (CWE-1236):**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:128: trailing whitespace.
+[32m+[m[32m12. **Error Handling & Classification:**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:178: trailing whitespace.
+[32m+[m[32mBecause the worker has no record-filtering flags and processes all eligible pending records in the target database, **database isolation is the sole barrier protecting production data.**[m[41m  [m
+docs/reports/STAGE_9_7B_12C_GOOGLE_SHEETS_WORKER_PREFLIGHT_REPORT.md:191: trailing whitespace.
+[32m+[m[32m- **Service Account Credential Path:**[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Execution Mode:** AUTHORIZED CONTROLLED SYNCHRONIZATION[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**Authorized By:** Explicit User Approval[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:8: trailing whitespace.
+[32m+[m[32m**Target Database:** `C:\Projects\Smart-Attendance-System\database\manual_test\attendance_manual_test.db`[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:9: trailing whitespace.
+[32m+[m[32m**Target Spreadsheet:** `Smart Attendance Management System` (`1G2kJ_i4i31Frk4ph5LmcF_RzaGpeStZMttla3bP07PY`)[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:10: trailing whitespace.
+[32m+[m[32m**Target Worksheet:** `Attendance_Log`[m[41m  [m
+docs/reports/STAGE_9_7B_12D_GOOGLE_SHEETS_SYNC_EXECUTION_REPORT.md:11: trailing whitespace.
+[32m+[m[32m**Lead Auditor/Executor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Audit Mode:** STRICT READ-ONLY CODE AND DATABASE AUDIT[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**Lead Auditor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:357: trailing whitespace.
+[32m+[m[32m1. **Unset `DATABASE_PATH` Production Fallback Risk:**[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:358: trailing whitespace.
+[32m+[m[32m   *Observation:* If `DATABASE_PATH` is unset in the execution environment, the worker defaults to `database/attendance.db`.[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:359: trailing whitespace.
+[32m+[m[32m   *Risk:* A test run without proper environment initialization could accidentally query production data.[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:361: trailing whitespace.
+[32m+[m[32m2. **Delivery Semantics (At-Least-Once with Remote Deduplication):**[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:362: trailing whitespace.
+[32m+[m[32m   *Observation:* Because Google Sheets API does not participate in distributed two-phase commit (2PC) transactions with SQLite, there exists a brief window where Google Sheets appends the row, but network drops before SQLite records `synced`.[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:364: trailing whitespace.
+[32m+[m[32m3. **Lease Duration vs Network Timeout:**[m[41m  [m
+docs/reports/STAGE_9_7B_13A_RELIABILITY_ARCHITECTURE_AUDIT_REPORT.md:365: trailing whitespace.
+[32m+[m[32m   *Observation:* Lease duration is 60 seconds (`DEFAULT_LEASE_DURATION_SECONDS`).[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Test Mode:** CONTROLLED TESTING — DISPOSABLE DATABASE ONLY[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**External API Writes:** STRICTLY PROHIBITED (100% Mocked)[m[41m  [m
+docs/reports/STAGE_9_7B_13B_IDEMPOTENCY_TEST_REPORT.md:8: trailing whitespace.
+[32m+[m[32m**Lead Auditor/Executor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Test Mode:** STRICTLY ISOLATED RELIABILITY TESTING — DISPOSABLE DATABASE ONLY[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:7: trailing whitespace.
+[32m+[m[32m**External API Operations:** STRICTLY PROHIBITED (100% Mocked, Zero Network Sockets)[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:8: trailing whitespace.
+[32m+[m[32m**Lead Auditor/Executor:** Antigravity[m[41m  [m
+docs/reports/STAGE_9_7B_13C_LEASE_RECOVERY_CONCURRENCY_REPORT.md:80: trailing whitespace.
+[32m+[m[41m        [m
+docs/reports/STAGE_9_7B_13D_EXACTLY_ONCE_ARCHITECTURE_REPORT.md:3: trailing whitespace.
+[32m+[m[32m**Project:** IoT-Based Smart Attendance Management System[m[41m  [m
+docs/reports/STAGE_9_7B_13D_EXACTLY_ONCE_ARCHITECTURE_REPORT.md:4: trailing whitespace.
+[32m+[m[32m**Workspace:** `C:\Projects\Smart-Attendance-System`[m[41m  [m
+docs/reports/STAGE_9_7B_13D_EXACTLY_ONCE_ARCHITECTURE_REPORT.md:5: trailing whitespace.
+[32m+[m[32m**Execution Date:** 2026-11-24[m[41m  [m
+docs/reports/STAGE_9_7B_13D_EXACTLY_ONCE_ARCHITECTURE_REPORT.md:6: trailing whitespace.
+[32m+[m[32m**Audit Mode:** STRICT READ-ONLY ARCHITECTURE AUDIT[m[41m  [m
+docs/reports/STAGE_9_7B_13D_EXACTLY_ONCE_ARCHITECTURE_REPORT.md:7: trailing whitespace.
+[32

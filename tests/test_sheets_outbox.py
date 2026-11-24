@@ -438,9 +438,11 @@ def test_13_successful_records_can_be_marked_synced(outbox_app, outbox_client):
 
     claimed = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
     queue_id = claimed[0]["queue_id"]
+    token = claimed[0]["claim_token"]
 
     success = mark_as_synced(
         queue_id=queue_id,
+        claim_token=token,
         synced_at="2026-11-08T10:05:00Z",
         db_path=outbox_app.config["DATABASE_PATH"]
     )
@@ -460,11 +462,13 @@ def test_14_retry_scheduling_works_correctly(outbox_app, outbox_client):
 
     claimed = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
     queue_id = claimed[0]["queue_id"]
+    token = claimed[0]["claim_token"]
 
     t_now = datetime(2026, 11, 8, 10, 0, 0, tzinfo=timezone.utc)
     # Schedule retry with 0 jitter (delay should be 15s)
     result = schedule_retry(
         queue_id=queue_id,
+        claim_token=token,
         error_message="Socket timeout connecting to Sheets API",
         base_delay=15,
         jitter=False,
@@ -554,11 +558,14 @@ def test_16_maximum_attempts_lead_to_dead_letter(outbox_app, outbox_client):
 
     claimed = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
     queue_id = claimed[0]["queue_id"]
+    tok1 = claimed[0]["claim_token"]
 
     # Execute retries up to max_retries = 3
-    schedule_retry(queue_id=queue_id, error_message="Err 1", max_retries=3, db_path=outbox_app.config["DATABASE_PATH"])
-    schedule_retry(queue_id=queue_id, error_message="Err 2", max_retries=3, db_path=outbox_app.config["DATABASE_PATH"])
-    res3 = schedule_retry(queue_id=queue_id, error_message="Err 3", max_retries=3, db_path=outbox_app.config["DATABASE_PATH"])
+    schedule_retry(queue_id=queue_id, claim_token=tok1, error_message="Err 1", max_retries=3, base_delay=0, jitter=False, db_path=outbox_app.config["DATABASE_PATH"])
+    c2 = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
+    schedule_retry(queue_id=queue_id, claim_token=c2[0]["claim_token"], error_message="Err 2", max_retries=3, base_delay=0, jitter=False, db_path=outbox_app.config["DATABASE_PATH"])
+    c3 = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
+    res3 = schedule_retry(queue_id=queue_id, claim_token=c3[0]["claim_token"], error_message="Err 3", max_retries=3, base_delay=0, jitter=False, db_path=outbox_app.config["DATABASE_PATH"])
 
     assert res3["sync_status"] == "dead_letter"
     assert res3["max_retries_exceeded"] is True
@@ -649,7 +656,7 @@ def test_19_database_integrity_remains_valid(outbox_app, outbox_client):
     outbox_client.post("/api/scans", json={"card_uid": "AA11BB22", "source": "rfid"})
 
     claimed = claim_records(limit=1, db_path=outbox_app.config["DATABASE_PATH"])
-    mark_as_synced(claimed[0]["queue_id"], db_path=outbox_app.config["DATABASE_PATH"])
+    mark_as_synced(queue_id=claimed[0]["queue_id"], claim_token=claimed[0]["claim_token"], db_path=outbox_app.config["DATABASE_PATH"])
 
     conn = get_db_connection(outbox_app.config["DATABASE_PATH"])
     cursor = conn.cursor()

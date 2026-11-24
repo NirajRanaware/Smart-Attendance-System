@@ -24,7 +24,7 @@ This directory contains the modular Arduino-based firmware for the physical **Io
 
 | RC522 Pin | ESP32 GPIO | Description |
 | :--- | :--- | :--- |
-| **SDA / SS** | **GPIO 5** | SPI Chip Select (Slave Select) |
+| **SDA / SS** | **GPIO 27** | SPI Chip Select (Slave Select - avoids GPIO5 boot strapping) |
 | **SCK** | **GPIO 18** | SPI Clock |
 | **MOSI** | **GPIO 23** | SPI Master-Out-Slave-In |
 | **MISO** | **GPIO 19** | SPI Master-In-Slave-Out |

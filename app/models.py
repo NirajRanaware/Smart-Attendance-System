@@ -67,7 +67,18 @@ CREATE TABLE IF NOT EXISTS sheets_sync_queue (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     synced_at TEXT,
+    sheet_row_number INTEGER,
+    claim_token INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (attendance_id) REFERENCES attendance(id) ON DELETE CASCADE
+);
+
+-- Table 6: Google Sheets Synchronization Metadata (Phase 3 Milestone 5)
+-- Stores singleton sequence counters and configuration metadata for Google Sheets synchronization.
+CREATE TABLE IF NOT EXISTS sheets_sync_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    next_sheet_row INTEGER NOT NULL CHECK (next_sheet_row >= 5),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """
 
@@ -106,6 +117,11 @@ CREATE INDEX IF NOT EXISTS idx_sync_queue_attendance_id ON sheets_sync_queue(att
 
 -- Optimize recovering expired worker processing leases
 CREATE INDEX IF NOT EXISTS idx_sync_queue_lease ON sheets_sync_queue(sync_status, lease_expires_at);
+
+-- Partial unique index: Enforce unique non-null row numbers for Google Sheets synchronization
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sheets_sync_queue_sheet_row_number
+ON sheets_sync_queue(sheet_row_number)
+WHERE sheet_row_number IS NOT NULL;
 """
 
 # Standalone DDL for sheets_sync_queue migration
@@ -121,6 +137,8 @@ CREATE TABLE IF NOT EXISTS sheets_sync_queue (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     synced_at TEXT,
+    sheet_row_number INTEGER,
+    claim_token INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (attendance_id) REFERENCES attendance(id) ON DELETE CASCADE
 );
 """
@@ -129,4 +147,17 @@ CREATE_SHEETS_SYNC_QUEUE_INDEXES_SQL = """
 CREATE INDEX IF NOT EXISTS idx_sync_queue_status_retry ON sheets_sync_queue(sync_status, next_retry_at);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_attendance_id ON sheets_sync_queue(attendance_id);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_lease ON sheets_sync_queue(sync_status, lease_expires_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sheets_sync_queue_sheet_row_number
+ON sheets_sync_queue(sheet_row_number)
+WHERE sheet_row_number IS NOT NULL;
+"""
+
+CREATE_SHEETS_SYNC_META_SQL = """
+CREATE TABLE IF NOT EXISTS sheets_sync_meta (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    next_sheet_row INTEGER NOT NULL CHECK (next_sheet_row >= 5),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """

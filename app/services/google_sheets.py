@@ -123,6 +123,20 @@ class GoogleSheetsNetworkError(GoogleSheetsError):
         super().__init__(message, error_type="NETWORK_ERROR", retryable=True)
 
 
+class GoogleSheetsTimeoutError(GoogleSheetsNetworkError):
+    """Raised when a socket or client-side HTTP request timeout occurs."""
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.error_type = "TIMEOUT"
+        self.retryable = True
+
+
+class GoogleSheetsValidationError(GoogleSheetsError, ValueError):
+    """Raised when input validation for attendance record, row number, or range fails."""
+    def __init__(self, message: str):
+        super().__init__(message, error_type="VALIDATION_ERROR", retryable=False)
+
+
 # ==============================================================================
 # 2. Configuration & Credential Management
 # ==============================================================================
@@ -234,6 +248,8 @@ def get_sheets_service(
     credentials: Optional[service_account.Credentials] = None,
     credentials_path: Optional[Union[str, Path]] = None,
     scopes: Optional[Tuple[str, ...]] = None,
+    timeout_seconds: Optional[float] = None,
+    http: Optional[Any] = None,
     cache: bool = True
 ) -> Resource:
     """
@@ -242,20 +258,32 @@ def get_sheets_service(
     :param credentials: Optional pre-loaded credentials.
     :param credentials_path: Optional path to JSON key file.
     :param scopes: Optional scopes tuple.
+    :param timeout_seconds: Optional socket timeout in seconds for HTTP transport.
+    :param http: Optional custom HTTP transport instance.
     :param cache: Whether to reuse cached singleton client instance.
     :return: Google API discovery Resource for Sheets v4.
     """
     global _cached_service, _cached_credentials_path
 
-    if cache and _cached_service is not None:
+    if cache and _cached_service is not None and timeout_seconds is None and http is None:
         return _cached_service
 
     if credentials is None:
         credentials = load_credentials(credentials_path=credentials_path, scopes=scopes)
 
     try:
-        service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
-        if cache:
+        if http is not None:
+            service = build("sheets", "v4", http=http, cache_discovery=False)
+        elif timeout_seconds is not None:
+            import httplib2
+            import google_auth_httplib2
+            http_transport = httplib2.Http(timeout=timeout_seconds)
+            authorized_http = google_auth_httplib2.AuthorizedHttp(credentials, http=http_transport)
+            service = build("sheets", "v4", http=authorized_http, cache_discovery=False)
+        else:
+            service = build("sheets", "v4", credentials=credentials, cache_discovery=False)
+
+        if cache and timeout_seconds is None and http is None:
             _cached_service = service
             _cached_credentials_path = str(credentials_path) if credentials_path else None
         return service
@@ -318,7 +346,14 @@ def map_http_error(e: HttpError, spreadsheet_id: str = "") -> GoogleSheetsError:
     except Exception:
         details = str(e)
 
-    if status_code == 401:
+    if status_code == 400:
+        return GoogleSheetsError(
+            f"Invalid range or bad request (HTTP 400): {details}",
+            error_type="INVALID_RANGE",
+            status_code=400,
+            retryable=False
+        )
+    elif status_code == 401:
         return GoogleSheetsAuthError(
             f"Authentication failed (HTTP 401): {details or 'Invalid credentials or expired token.'}",
             status_code=401
@@ -739,3 +774,303 @@ def get_existing_attendance_ids(
         if isinstance(e, GoogleSheetsError):
             raise
         raise GoogleSheetsError(f"Failed to read existing attendance IDs: {e}")
+
+
+# ==============================================================================
+# 7. Deterministic Row Update Service (Stage 9.7B.13I)
+# ==============================================================================
+
+def construct_deterministic_range(
+    sheet_name: str,
+    sheet_row_number: int
+) -> str:
+    """
+    Constructs the 9-column deterministic A1 range for a given permanent sheet row number.
+    Target pattern: '{sheet_name}!A{sheet_row_number}:I{sheet_row_number}'
+
+    :param sheet_name: Worksheet name (e.g. 'Attendance_Log').
+    :param sheet_row_number: Permanent 1-based row index (must be integer >= 2).
+    :return: Formatted A1 range string (e.g. 'Attendance_Log!A5:I5').
+    :raises GoogleSheetsValidationError: If sheet_row_number is invalid or sheet_name is empty.
+    """
+    if not sheet_name or not isinstance(sheet_name, str) or not sheet_name.strip():
+        raise GoogleSheetsValidationError("Worksheet name must be a non-empty string.")
+
+    clean_sheet = sheet_name.strip()
+
+    if isinstance(sheet_row_number, bool) or not isinstance(sheet_row_number, int):
+        raise GoogleSheetsValidationError(
+            f"Invalid sheet row number '{sheet_row_number}'. Row number must be an integer."
+        )
+
+    if sheet_row_number <= 0:
+        raise GoogleSheetsValidationError(
+            f"Invalid sheet row number {sheet_row_number}. Row number must be a positive integer."
+        )
+
+    if sheet_row_number < 2:
+        raise GoogleSheetsValidationError(
+            f"Invalid sheet row number {sheet_row_number}. Row 1 is reserved for spreadsheet headers."
+        )
+
+    if sheet_row_number > 10_000_000:
+        raise GoogleSheetsValidationError(
+            f"Invalid sheet row number {sheet_row_number}. Exceeds maximum spreadsheet capacity."
+        )
+
+    # Wrap in single quotes if sheet_name has whitespace
+    if " " in clean_sheet and not (clean_sheet.startswith("'") and clean_sheet.endswith("'")):
+        return f"'{clean_sheet}'!A{sheet_row_number}:I{sheet_row_number}"
+
+    return f"{clean_sheet}!A{sheet_row_number}:I{sheet_row_number}"
+
+
+def update_attendance_row(
+    attendance_record: Union[Dict[str, Any], List[Any]],
+    sheet_row_number: int,
+    spreadsheet_id: Optional[str] = None,
+    sheet_name: str = "Attendance_Log",
+    service: Optional[Resource] = None,
+    timeout_seconds: Optional[float] = 10.0,
+    http: Optional[Any] = None,
+    value_input_option: str = "RAW",
+    raise_for_status: bool = False
+) -> Dict[str, Any]:
+    """
+    Updates a specific 9-column attendance row in Google Sheets at its deterministic permanent row number.
+
+    CRITICAL ARCHITECTURAL GUARANTEE:
+    - Uses Google Sheets `values().update` exclusively.
+    - NEVER calls `values().append`.
+    - Always targets range '{sheet_name}!A{sheet_row_number}:I{sheet_row_number}'.
+    - Repeated calls for the same row update in place, preventing duplicate rows.
+
+    :param attendance_record: Attendance record dictionary or pre-formatted 9-value list.
+    :param sheet_row_number: Permanent 1-based row index (must be >= 2).
+    :param spreadsheet_id: Target spreadsheet ID (or resolved from config).
+    :param sheet_name: Target sheet/tab name (default: 'Attendance_Log').
+    :param service: Optional Google API Resource instance or mock.
+    :param timeout_seconds: Optional socket/transport timeout in seconds (default: 10.0).
+    :param http: Optional custom HTTP transport instance.
+    :param value_input_option: Input parsing mode ('RAW' enforced by default).
+    :param raise_for_status: If True, raises GoogleSheetsError subclasses on error instead of returning dict.
+    :return: Structured result dictionary.
+    :raises GoogleSheetsValidationError: If validation fails and raise_for_status=True.
+    :raises GoogleSheetsError: If remote update fails and raise_for_status=True.
+    """
+    # 1. Validate and construct deterministic range
+    try:
+        target_range = construct_deterministic_range(sheet_name, sheet_row_number)
+    except GoogleSheetsValidationError as e:
+        if raise_for_status:
+            raise
+        return e.to_dict()
+
+    # 2. Validate payload and format exactly 9 columns
+    try:
+        if attendance_record is None:
+            raise GoogleSheetsValidationError("Attendance record payload cannot be None.")
+
+        if isinstance(attendance_record, dict):
+            if not attendance_record:
+                raise GoogleSheetsValidationError("Attendance record dictionary cannot be empty.")
+            raw_id = attendance_record.get("attendance_id") if "attendance_id" in attendance_record else attendance_record.get("id")
+            if raw_id is None:
+                raise GoogleSheetsValidationError("Attendance record missing required 'attendance_id' or 'id'.")
+            if isinstance(raw_id, bool) or not isinstance(raw_id, (int, str)):
+                raise GoogleSheetsValidationError(f"Invalid attendance ID type: {type(raw_id).__name__}. Must be integer.")
+            try:
+                att_id = int(raw_id)
+                if att_id <= 0:
+                    raise GoogleSheetsValidationError(f"Invalid attendance ID {att_id}. Must be a positive integer.")
+            except ValueError:
+                raise GoogleSheetsValidationError(f"Invalid attendance ID '{raw_id}'. Must be a positive integer.")
+
+            formatted_row = format_attendance_row(attendance_record)
+
+        elif isinstance(attendance_record, (list, tuple)):
+            if len(attendance_record) != 9:
+                raise GoogleSheetsValidationError(
+                    f"Attendance payload row must contain exactly 9 values, got {len(attendance_record)}."
+                )
+            raw_id = attendance_record[0]
+            if raw_id is None or isinstance(raw_id, bool):
+                raise GoogleSheetsValidationError(f"Invalid attendance ID in payload: {raw_id}.")
+            try:
+                att_id = int(raw_id)
+                if att_id <= 0:
+                    raise GoogleSheetsValidationError(f"Invalid attendance ID {att_id}. Must be a positive integer.")
+            except (ValueError, TypeError):
+                raise GoogleSheetsValidationError(f"Invalid attendance ID in payload: {raw_id}.")
+
+            formatted_row = [att_id] + [sanitize_sheet_cell(c) for c in attendance_record[1:]]
+
+        else:
+            raise GoogleSheetsValidationError(
+                f"Unsupported attendance record type: {type(attendance_record).__name__}. Expected dict or list."
+            )
+
+        if len(formatted_row) != 9:
+            raise GoogleSheetsValidationError(
+                f"Formatted attendance row must contain exactly 9 values, got {len(formatted_row)}."
+            )
+
+    except GoogleSheetsValidationError as e:
+        if raise_for_status:
+            raise
+        return e.to_dict()
+
+    # 3. Resolve target spreadsheet configuration
+    cfg = get_google_config()
+    target_id = spreadsheet_id if spreadsheet_id is not None else cfg["spreadsheet_id"]
+    if not target_id or not target_id.strip():
+        err_cfg = GoogleSheetsConfigError("Google Spreadsheet ID is not configured.")
+        if raise_for_status:
+            raise err_cfg
+        return {
+            "success": False,
+            "error_type": "MISSING_SPREADSHEET_ID",
+            "status_code": None,
+            "retryable": False,
+            "message": "Google Spreadsheet ID is not configured. Set GOOGLE_SHEETS_SPREADSHEET_ID."
+        }
+
+    target_id = target_id.strip()
+    target_sheet = sheet_name or cfg["sheet_name"] or "Attendance_Log"
+
+    # 4. Perform deterministic update via Google Sheets values().update
+    try:
+        if service is None:
+            service = get_sheets_service(
+                credentials_path=cfg.get("credentials_path"),
+                timeout_seconds=timeout_seconds,
+                http=http
+            )
+
+        body = {
+            "majorDimension": "ROWS",
+            "values": [formatted_row]
+        }
+
+        request = service.spreadsheets().values().update(
+            spreadsheetId=target_id,
+            range=target_range,
+            valueInputOption=value_input_option,
+            body=body
+        )
+
+        if http is not None:
+            resp = request.execute(http=http)
+        else:
+            resp = request.execute()
+
+        updated_rows = resp.get("updatedRows", 1) if isinstance(resp, dict) else 1
+        updated_cols = resp.get("updatedColumns", len(formatted_row)) if isinstance(resp, dict) else len(formatted_row)
+        updated_cells = resp.get("updatedCells", len(formatted_row)) if isinstance(resp, dict) else len(formatted_row)
+        updated_range = resp.get("updatedRange", target_range) if isinstance(resp, dict) else target_range
+
+        return {
+            "success": True,
+            "operation": "UPDATE",
+            "spreadsheet_id": target_id,
+            "sheet_name": target_sheet,
+            "sheet_row_number": sheet_row_number,
+            "attendance_id": att_id,
+            "target_range": target_range,
+            "updated_range": updated_range,
+            "updated_rows": updated_rows,
+            "updated_columns": updated_cols,
+            "updated_cells": updated_cells,
+            "message": f"Successfully updated row {sheet_row_number} in '{target_range}'."
+        }
+
+    except HttpError as e:
+        domain_err = map_http_error(e, spreadsheet_id=target_id)
+        if raise_for_status:
+            raise domain_err
+        return domain_err.to_dict()
+    except (socket.timeout, TimeoutError) as e:
+        err = GoogleSheetsTimeoutError(f"Network timeout updating attendance row {sheet_row_number}: {e}")
+        if raise_for_status:
+            raise err
+        return err.to_dict()
+    except (socket.error, ConnectionError) as e:
+        err = GoogleSheetsNetworkError(f"Network connection failure updating attendance row {sheet_row_number}: {e}")
+        if raise_for_status:
+            raise err
+        return err.to_dict()
+    except GoogleSheetsError as e:
+        if raise_for_status:
+            raise
+        return e.to_dict()
+    except Exception as e:
+        err = GoogleSheetsError(f"Unexpected error updating attendance row {sheet_row_number}: {e}")
+        if raise_for_status:
+            raise err
+        return err.to_dict()
+
+
+def update_attendance_batch(
+    records_with_rows: List[Tuple[Union[Dict[str, Any], List[Any]], int]],
+    spreadsheet_id: Optional[str] = None,
+    sheet_name: str = "Attendance_Log",
+    service: Optional[Resource] = None,
+    timeout_seconds: Optional[float] = 10.0,
+    http: Optional[Any] = None,
+    value_input_option: str = "RAW"
+) -> Dict[str, Any]:
+    """
+    Deterministically updates multiple attendance records, each targeted to its permanent row number.
+    Ensures that every update operation targets its specific range without using append.
+
+    :param records_with_rows: List of (attendance_record, sheet_row_number) tuples.
+    :param spreadsheet_id: Target spreadsheet ID.
+    :param sheet_name: Target sheet/tab name.
+    :param service: Optional Google API Resource instance or mock.
+    :param timeout_seconds: Timeout per request in seconds.
+    :param http: Optional custom HTTP transport instance.
+    :param value_input_option: Input parsing mode ('RAW' enforced by default).
+    :return: Summary dictionary with operation results.
+    """
+    if not records_with_rows:
+        return {
+            "success": True,
+            "operation": "BATCH_UPDATE",
+            "total_count": 0,
+            "updated_count": 0,
+            "failed_count": 0,
+            "results": [],
+            "message": "No records provided for update."
+        }
+
+    results = []
+    success_count = 0
+    failed_count = 0
+
+    for record, row_number in records_with_rows:
+        res = update_attendance_row(
+            attendance_record=record,
+            sheet_row_number=row_number,
+            spreadsheet_id=spreadsheet_id,
+            sheet_name=sheet_name,
+            service=service,
+            timeout_seconds=timeout_seconds,
+            http=http,
+            value_input_option=value_input_option,
+            raise_for_status=False
+        )
+        results.append(res)
+        if res.get("success", False):
+            success_count += 1
+        else:
+            failed_count += 1
+
+    return {
+        "success": failed_count == 0,
+        "operation": "BATCH_UPDATE",
+        "total_count": len(records_with_rows),
+        "updated_count": success_count,
+        "failed_count": failed_count,
+        "results": results,
+        "message": f"Batch update complete: {success_count} succeeded, {failed_count} failed."
+    }

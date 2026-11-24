@@ -1,5 +1,5 @@
 """
-Google Sheets Local Outbox Queue Service.
+Google Sheets Local Outbox Queue Service with Claim-Token Fencing.
 
 Architecture & Timestamp Conventions:
 - INTERNAL DATABASE TIMESTAMPS:
@@ -10,21 +10,26 @@ Architecture & Timestamp Conventions:
 - APPLICATION & INSTITUTIONAL TIMESTAMPS:
   When displaying dates and times to users or writing report headers, timestamps are
   converted to Asia/Kolkata (UTC+05:30) using `app.time_utils`.
-
-Provides safe record claiming with leased concurrency locks, lease expiration recovery,
-exponential backoff retry scheduling with jitter injection, and queue telemetry.
+- CLAIM-TOKEN FENCING:
+  Guarantees mutual exclusion and prevents stale-worker race conditions.
+  Every successful claim increments `claim_token` atomically.
+  Every worker state transition requires the matching `claim_token`, `sync_status = 'in_progress'`,
+  and an active unexpired lease.
 """
 
+from contextlib import contextmanager
+import logging
 import random
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Sequence, Dict, Any, List
 
 from flask import current_app, has_app_context
 from app.config import get_config
 from app.database import get_db_connection, close_db_connection
 
+logger = logging.getLogger(__name__)
 
 # Supported synchronization states
 ALLOWED_STATUSES = ("pending", "in_progress", "synced", "failed", "dead_letter")
@@ -36,10 +41,20 @@ DEFAULT_MAX_RETRIES = 5
 DEFAULT_LEASE_DURATION_SECONDS = 60
 
 
+class OutboxError(Exception):
+    """Base exception for outbox service errors."""
+    pass
+
+
+class ClaimFencingError(OutboxError):
+    """Raised when a claim token or lease fencing invariant is violated."""
+    pass
+
+
 def _get_active_db_connection(db_path: Optional[Union[str, Path]] = None) -> sqlite3.Connection:
     """Helper to resolve database connection."""
     if db_path is None:
-        if has_app_context():
+        if has_app_context() and current_app.config.get("DATABASE_PATH"):
             db_path = current_app.config.get("DATABASE_PATH")
         else:
             db_path = get_config().DATABASE_PATH
@@ -55,6 +70,76 @@ def _get_utc_now(now_dt: Optional[datetime] = None) -> tuple[datetime, str]:
     return dt, dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+@contextmanager
+def _managed_transaction(
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None,
+    timeout_seconds: float = 30.0,
+    savepoint_prefix: str = "outbox_sp"
+):
+    """
+    Context manager providing safe transaction ownership.
+    - If conn is None: creates connection, runs BEGIN IMMEDIATE;, commits on success,
+      rolls back on exception, and closes connection in finally.
+    - If conn is provided and already in transaction: creates a unique SAVEPOINT.
+      Releases savepoint on success, rolls back to savepoint on exception.
+      Does NOT commit, rollback, or close the caller's connection.
+    - If conn is provided and NOT in transaction: runs BEGIN IMMEDIATE;, commits on success,
+      rolls back on exception. Does NOT close the caller's connection.
+    """
+    own_conn = (conn is None)
+    if own_conn:
+        active_conn = _get_active_db_connection(db_path)
+        active_conn.execute(f"PRAGMA busy_timeout = {int(timeout_seconds * 1000)};")
+        active_conn.execute("BEGIN IMMEDIATE;")
+        try:
+            yield active_conn
+            active_conn.commit()
+        except Exception:
+            try:
+                active_conn.rollback()
+            except sqlite3.Error:
+                pass
+            raise
+        finally:
+            close_db_connection(active_conn)
+    else:
+        active_conn = conn
+        if active_conn.in_transaction:
+            sp_name = f"{savepoint_prefix}_{random.randint(100000, 999999)}"
+            active_conn.execute(f"SAVEPOINT {sp_name};")
+            try:
+                yield active_conn
+                active_conn.execute(f"RELEASE SAVEPOINT {sp_name};")
+            except Exception:
+                try:
+                    active_conn.execute(f"ROLLBACK TO SAVEPOINT {sp_name};")
+                    active_conn.execute(f"RELEASE SAVEPOINT {sp_name};")
+                except sqlite3.Error:
+                    pass
+                raise
+        else:
+            active_conn.execute(f"PRAGMA busy_timeout = {int(timeout_seconds * 1000)};")
+            active_conn.execute("BEGIN IMMEDIATE;")
+            try:
+                yield active_conn
+                active_conn.commit()
+            except Exception:
+                try:
+                    active_conn.rollback()
+                except sqlite3.Error:
+                    pass
+                raise
+
+
+def _validate_queue_and_token(queue_id: Any, claim_token: Any) -> None:
+    """Validates that queue_id and claim_token are valid positive integers."""
+    if isinstance(queue_id, bool) or not isinstance(queue_id, int) or queue_id <= 0:
+        raise ValueError(f"Invalid queue_id '{queue_id}': must be a positive integer (> 0).")
+    if isinstance(claim_token, bool) or not isinstance(claim_token, int) or claim_token <= 0:
+        raise ValueError(f"Invalid claim_token '{claim_token}': must be a positive integer (> 0).")
+
+
 def create_queue_record(
     conn: sqlite3.Connection,
     attendance_id: int,
@@ -63,7 +148,8 @@ def create_queue_record(
     """
     Inserts a pending outbox record into sheets_sync_queue for a given attendance record.
     Executed inside the caller's active transaction (does NOT commit).
-    
+    Sets initial claim_token = 0 and sheet_row_number = NULL.
+
     :param conn: Active sqlite3 connection with transaction in progress.
     :param attendance_id: Foreign key ID referencing attendance.id.
     :param created_at: Optional ISO 8601 UTC timestamp.
@@ -71,13 +157,13 @@ def create_queue_record(
     """
     if created_at is None:
         _, created_at = _get_utc_now()
-        
+
     cursor = conn.cursor()
     cursor.execute(
         """
         INSERT INTO sheets_sync_queue (
-            attendance_id, sync_status, retry_count, created_at, updated_at
-        ) VALUES (?, 'pending', 0, ?, ?);
+            attendance_id, sync_status, retry_count, claim_token, sheet_row_number, created_at, updated_at
+        ) VALUES (?, 'pending', 0, 0, NULL, ?, ?);
         """,
         (attendance_id, created_at, created_at)
     )
@@ -87,7 +173,7 @@ def create_queue_record(
 def get_queue_stats(db_path: Optional[Union[str, Path]] = None) -> dict:
     """
     Retrieves real-time telemetry and state counts from sheets_sync_queue.
-    
+
     :param db_path: Optional SQLite database path.
     :return: Dictionary containing counts for each status and total records.
     """
@@ -96,18 +182,18 @@ def get_queue_stats(db_path: Optional[Union[str, Path]] = None) -> dict:
         cursor = conn.cursor()
         cursor.execute("SELECT sync_status, COUNT(*) AS count FROM sheets_sync_queue GROUP BY sync_status;")
         counts = {row["sync_status"]: row["count"] for row in cursor.fetchall()}
-        
+
         cursor.execute("SELECT COUNT(*) FROM sheets_sync_queue;")
         total = cursor.fetchone()[0]
-        
+
         cursor.execute(
             """
-            SELECT MIN(created_at) FROM sheets_sync_queue 
+            SELECT MIN(created_at) FROM sheets_sync_queue
             WHERE sync_status IN ('pending', 'failed');
             """
         )
         oldest_pending = cursor.fetchone()[0]
-        
+
         return {
             "pending": counts.get("pending", 0),
             "in_progress": counts.get("in_progress", 0),
@@ -129,7 +215,7 @@ def get_pending_records(
     """
     Retrieves records eligible for synchronization (pending or retry-ready failed items)
     with full attendance, student, and class session data joined.
-    
+
     :param limit: Maximum number of records to return.
     :param now_utc: Optional current UTC ISO string for retry-time comparison.
     :param db_path: Optional SQLite database path.
@@ -137,16 +223,18 @@ def get_pending_records(
     """
     if now_utc is None:
         _, now_utc = _get_utc_now()
-        
+
     conn = _get_active_db_connection(db_path)
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 q.id AS queue_id,
                 q.attendance_id,
                 q.sync_status,
+                q.claim_token,
+                q.sheet_row_number,
                 q.retry_count,
                 q.next_retry_at,
                 q.lease_expires_at,
@@ -184,28 +272,32 @@ def claim_records(
     limit: int = 50,
     lease_duration_seconds: int = DEFAULT_LEASE_DURATION_SECONDS,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> list[dict]:
     """
-    Safely and atomically claims a batch of pending/failed synchronization records
-    by acquiring an immediate SQLite write lock and assigning a lease expiration.
-    Guarantees no two workers can claim the same record simultaneously.
-    
-    :param worker_id: Identifier of the claiming worker thread.
+    Atomically claims a batch of pending/failed synchronization records with claim-token fencing.
+
+    Guarantees:
+    - Atomically increments claim_token for each successfully claimed record.
+    - Sets sync_status = 'in_progress' and lease_expires_at.
+    - Excludes records with active unexpired leases.
+    - Returns records with their newly assigned claim_token and sheet_row_number.
+
+    :param worker_id: Identifier of claiming worker.
     :param limit: Batch size limit.
     :param lease_duration_seconds: Duration before lease expires and becomes recoverable.
     :param now_dt: Optional datetime for deterministic testing.
     :param db_path: Optional SQLite database path.
+    :param conn: Optional existing SQLite connection.
     :return: List of claimed record dictionaries.
     """
     dt_now, now_utc = _get_utc_now(now_dt)
     lease_expires_dt = dt_now + timedelta(seconds=lease_duration_seconds)
     lease_expires_utc = lease_expires_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
 
         # 1. Select candidate IDs currently eligible
         cursor.execute(
@@ -221,15 +313,15 @@ def claim_records(
         candidate_ids = [row["id"] for row in cursor.fetchall()]
 
         if not candidate_ids:
-            conn.commit()
             return []
 
-        # 2. Atomically transition candidate IDs to 'in_progress'
+        # 2. Atomically transition candidate IDs to 'in_progress' and increment claim_token
         placeholders = ",".join("?" for _ in candidate_ids)
         cursor.execute(
             f"""
             UPDATE sheets_sync_queue
             SET sync_status = 'in_progress',
+                claim_token = claim_token + 1,
                 lease_expires_at = ?,
                 updated_at = ?
             WHERE id IN ({placeholders})
@@ -238,15 +330,18 @@ def claim_records(
             [lease_expires_utc, now_utc] + candidate_ids
         )
 
-        # 3. Fetch detailed data for all successfully claimed IDs
+        # 3. Fetch detailed data including claim_token and sheet_row_number
         cursor.execute(
             f"""
-            SELECT 
+            SELECT
                 q.id AS queue_id,
                 q.attendance_id,
                 q.sync_status,
+                q.claim_token,
+                q.sheet_row_number,
                 q.retry_count,
                 q.lease_expires_at,
+                q.last_error,
                 a.scanned_at,
                 a.status AS attendance_status,
                 a.source,
@@ -254,45 +349,43 @@ def claim_records(
                 s.full_name AS student_name,
                 s.card_uid,
                 c.course_name,
-                c.session_date
+                c.session_date,
+                c.start_time,
+                c.end_time
             FROM sheets_sync_queue q
             INNER JOIN attendance a ON q.attendance_id = a.id
             INNER JOIN students s ON a.student_id = s.id
             INNER JOIN class_sessions c ON a.session_id = c.id
             WHERE q.id IN ({placeholders})
+              AND q.sync_status = 'in_progress'
+              AND q.lease_expires_at = ?
             ORDER BY q.id ASC;
             """,
-            candidate_ids
+            candidate_ids + [lease_expires_utc]
         )
         rows = cursor.fetchall()
-        conn.commit()
         return [dict(r) for r in rows]
-
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
 
 
 def recover_expired_leases(
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> int:
     """
     Recovers orphaned records whose workers crashed or timed out while 'in_progress'.
     Resets sync_status back to 'pending' and clears lease_expires_at.
-    
+    Preserves claim_token, sheet_row_number, and retry_count.
+
     :param now_dt: Optional current datetime for lease comparison.
     :param db_path: Optional SQLite database path.
+    :param conn: Optional existing SQLite connection.
     :return: Number of recovered records.
     """
     _, now_utc = _get_utc_now(now_dt)
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
         cursor.execute(
             """
             UPDATE sheets_sync_queue
@@ -305,39 +398,38 @@ def recover_expired_leases(
             """,
             (now_utc, now_utc)
         )
-        recovered_count = cursor.rowcount
-        conn.commit()
-        return recovered_count
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
+        return cursor.rowcount
 
 
 def mark_as_synced(
     queue_id: int,
+    claim_token: int,
     synced_at: Optional[str] = None,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> bool:
     """
-    Marks a queue record as successfully synchronized to Google Sheets.
-    
+    Fenced transition: marks a queue record as successfully synchronized to Google Sheets.
+    Requires matching queue_id, active claim_token, sync_status = 'in_progress', and valid lease.
+    Rejects stale workers whose lease expired or whose claim was reclaimed.
+
     :param queue_id: Primary key ID of the sheets_sync_queue row.
+    :param claim_token: Current active ownership token held by worker.
     :param synced_at: Optional timestamp of the Google Sheets write.
-    :param now_dt: Optional current datetime.
+    :param now_dt: Optional current datetime for lease validity check.
     :param db_path: Optional SQLite database path.
-    :return: True if row was updated.
+    :param conn: Optional existing SQLite connection.
+    :return: True if record was updated; False if ownership was lost or lease expired.
+    :raises ValueError: If queue_id or claim_token format is invalid.
     """
+    _validate_queue_and_token(queue_id, claim_token)
     _, now_utc = _get_utc_now(now_dt)
     if synced_at is None:
         synced_at = now_utc
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
         cursor.execute(
             """
             UPDATE sheets_sync_queue
@@ -346,18 +438,21 @@ def mark_as_synced(
                 lease_expires_at = NULL,
                 last_error = NULL,
                 updated_at = ?
-            WHERE id = ?;
+            WHERE id = ?
+              AND claim_token = ?
+              AND sync_status = 'in_progress'
+              AND lease_expires_at >= ?;
             """,
-            (synced_at, now_utc, queue_id)
+            (synced_at, now_utc, queue_id, claim_token, now_utc)
         )
-        updated = cursor.rowcount > 0
-        conn.commit()
+        updated = (cursor.rowcount == 1)
+        if not updated:
+            logger.warning(
+                "mark_as_synced rejected for queue_id=%d with token=%d: "
+                "stale claim, invalid status, or lease expired.",
+                queue_id, claim_token
+            )
         return updated
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
 
 
 def calculate_retry_delay(
@@ -374,7 +469,7 @@ def calculate_retry_delay(
     - Exponential multiplier: 2
     - Jitter: ±10% of capped delay (or explicit deterministic jitter_seconds)
     - Absolute final delay maximum: 900 seconds (15 minutes)
-    
+
     :param retry_count: Current number of previous failed attempts.
     :param base_delay: Base delay in seconds (default: 15s).
     :param max_delay: Absolute maximum delay ceiling in seconds (default: 900s / 15m).
@@ -382,7 +477,6 @@ def calculate_retry_delay(
     :param jitter_seconds: Explicit jitter value (used for deterministic tests).
     :return: Calculated delay in seconds (never exceeds max_delay, minimum 1.0s).
     """
-    # Exponential calculation: base * (2 ** retry_count)
     exponential_delay = base_delay * (2 ** max(0, retry_count))
     capped_delay = min(float(max_delay), float(exponential_delay))
 
@@ -390,10 +484,8 @@ def calculate_retry_delay(
         if jitter_seconds is not None:
             added_jitter = float(jitter_seconds)
         else:
-            # ±10% jitter on the capped exponential delay
             added_jitter = random.uniform(-0.10 * capped_delay, 0.10 * capped_delay)
         final_delay = capped_delay + added_jitter
-        # Enforce absolute boundaries: minimum 1.0s and absolute maximum max_delay (900s)
         return max(1.0, min(float(max_delay), final_delay))
 
     return capped_delay
@@ -401,6 +493,7 @@ def calculate_retry_delay(
 
 def schedule_retry(
     queue_id: int,
+    claim_token: int,
     error_message: str,
     max_retries: int = DEFAULT_MAX_RETRIES,
     base_delay: int = DEFAULT_BASE_DELAY_SECONDS,
@@ -408,14 +501,17 @@ def schedule_retry(
     jitter: bool = True,
     jitter_seconds: Optional[float] = None,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> dict:
     """
-    Schedules a retry for a failed queue record.
+    Fenced transition: schedules a retry for a failed queue record.
+    Requires matching queue_id, active claim_token, sync_status = 'in_progress', and valid lease.
     Increments retry_count, computes exponential backoff, and sets next_retry_at.
     If retry_count reaches max_retries, transitions the record to 'dead_letter'.
-    
+
     :param queue_id: Primary key of sheets_sync_queue row.
+    :param claim_token: Current active ownership token held by worker.
     :param error_message: Descriptive error message (truncated to 500 chars).
     :param max_retries: Maximum attempts before moving to dead_letter.
     :param base_delay: Base delay in seconds.
@@ -424,22 +520,48 @@ def schedule_retry(
     :param jitter_seconds: Deterministic jitter injection for testing.
     :param now_dt: Optional current datetime.
     :param db_path: Optional SQLite database path.
-    :return: Result dict with updated status and retry details.
+    :param conn: Optional existing SQLite connection.
+    :return: Result dict with updated status and retry details, or claim_lost=True if stale.
+    :raises ValueError: If queue_id or claim_token format is invalid, or if queue_id not in DB.
     """
+    _validate_queue_and_token(queue_id, claim_token)
     dt_now, now_utc = _get_utc_now(now_dt)
     sanitized_error = str(error_message)[:500] if error_message else "Unknown error"
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
 
-        # Fetch current retry count
-        cursor.execute("SELECT retry_count FROM sheets_sync_queue WHERE id = ?;", (queue_id,))
+        # Fetch current record state
+        cursor.execute(
+            """
+            SELECT id, sync_status, claim_token, retry_count, lease_expires_at
+            FROM sheets_sync_queue
+            WHERE id = ?;
+            """,
+            (queue_id,)
+        )
         row = cursor.fetchone()
         if not row:
-            conn.rollback()
             raise ValueError(f"Queue record ID {queue_id} does not exist.")
+
+        # Fencing pre-check
+        db_token = row["claim_token"]
+        db_status = row["sync_status"]
+        db_lease = row["lease_expires_at"]
+
+        if db_token != claim_token or db_status != "in_progress" or (db_lease is not None and db_lease < now_utc):
+            logger.warning(
+                "schedule_retry rejected for queue_id=%d: stale worker (token %d vs db %d, status '%s', lease '%s').",
+                queue_id, claim_token, db_token, db_status, db_lease
+            )
+            return {
+                "success": False,
+                "queue_id": queue_id,
+                "claim_lost": True,
+                "sync_status": db_status,
+                "retry_count": row["retry_count"],
+                "message": "Ownership lost or lease expired: stale worker update rejected."
+            }
 
         current_retries = row["retry_count"]
         new_retries = current_retries + 1
@@ -455,12 +577,23 @@ def schedule_retry(
                     lease_expires_at = NULL,
                     last_error = ?,
                     updated_at = ?
-                WHERE id = ?;
+                WHERE id = ?
+                  AND claim_token = ?
+                  AND sync_status = 'in_progress'
+                  AND lease_expires_at >= ?;
                 """,
-                (new_retries, sanitized_error, now_utc, queue_id)
+                (new_retries, sanitized_error, now_utc, queue_id, claim_token, now_utc)
             )
-            conn.commit()
+            if cursor.rowcount != 1:
+                return {
+                    "success": False,
+                    "queue_id": queue_id,
+                    "claim_lost": True,
+                    "sync_status": db_status,
+                    "message": "Conditional update failed: ownership lost during retry transition."
+                }
             return {
+                "success": True,
                 "queue_id": queue_id,
                 "sync_status": "dead_letter",
                 "retry_count": new_retries,
@@ -488,12 +621,24 @@ def schedule_retry(
                 lease_expires_at = NULL,
                 last_error = ?,
                 updated_at = ?
-            WHERE id = ?;
+            WHERE id = ?
+              AND claim_token = ?
+              AND sync_status = 'in_progress'
+              AND lease_expires_at >= ?;
             """,
-            (new_retries, next_retry_utc, sanitized_error, now_utc, queue_id)
+            (new_retries, next_retry_utc, sanitized_error, now_utc, queue_id, claim_token, now_utc)
         )
-        conn.commit()
+        if cursor.rowcount != 1:
+            return {
+                "success": False,
+                "queue_id": queue_id,
+                "claim_lost": True,
+                "sync_status": db_status,
+                "message": "Conditional update failed: ownership lost during retry transition."
+            }
+
         return {
+            "success": True,
             "queue_id": queue_id,
             "sync_status": "failed",
             "retry_count": new_retries,
@@ -502,15 +647,10 @@ def schedule_retry(
             "max_retries_exceeded": False
         }
 
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
-
 
 def mark_as_failed(
     queue_id: int,
+    claim_token: int,
     error_message: str,
     permanent: bool = False,
     max_retries: int = DEFAULT_MAX_RETRIES,
@@ -519,27 +659,31 @@ def mark_as_failed(
     jitter: bool = True,
     jitter_seconds: Optional[float] = None,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> dict:
     """
-    Marks a record as failed.
-    If permanent is True, immediately sets status to 'dead_letter' without retrying.
-    Otherwise, schedules a retry according to the exponential backoff policy.
-    
+    Fenced transition: marks a record as failed.
+    If permanent is True, moves record to 'dead_letter'; otherwise schedules retry.
+
     :param queue_id: Primary key of sheets_sync_queue row.
+    :param claim_token: Current active ownership token held by worker.
     :param error_message: Error description.
-    :param permanent: True for non-retryable errors (e.g. invalid data, configuration error).
+    :param permanent: True for non-retryable errors.
     :return: Status dictionary.
     """
     if permanent:
         return move_to_dead_letter(
             queue_id=queue_id,
+            claim_token=claim_token,
             error_message=error_message,
             now_dt=now_dt,
-            db_path=db_path
+            db_path=db_path,
+            conn=conn
         )
     return schedule_retry(
         queue_id=queue_id,
+        claim_token=claim_token,
         error_message=error_message,
         max_retries=max_retries,
         base_delay=base_delay,
@@ -547,32 +691,53 @@ def mark_as_failed(
         jitter=jitter,
         jitter_seconds=jitter_seconds,
         now_dt=now_dt,
-        db_path=db_path
+        db_path=db_path,
+        conn=conn
     )
 
 
 def move_to_dead_letter(
     queue_id: int,
+    claim_token: int,
     error_message: str,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> dict:
     """
-    Directly moves a record to the 'dead_letter' state (permanent failure).
-    
+    Fenced transition: directly moves a record to the 'dead_letter' state (permanent failure).
+    Requires matching queue_id, active claim_token, sync_status = 'in_progress', and valid lease.
+
     :param queue_id: Primary key of sheets_sync_queue row.
+    :param claim_token: Current active ownership token held by worker.
     :param error_message: Descriptive reason for permanent failure.
     :param now_dt: Optional datetime.
     :param db_path: Optional SQLite database path.
-    :return: Status dictionary.
+    :param conn: Optional existing SQLite connection.
+    :return: Status dictionary with success=True or claim_lost=True.
     """
+    _validate_queue_and_token(queue_id, claim_token)
     _, now_utc = _get_utc_now(now_dt)
     sanitized_error = str(error_message)[:500] if error_message else "Permanent synchronization failure"
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
+
+        cursor.execute("SELECT claim_token, sync_status, lease_expires_at FROM sheets_sync_queue WHERE id = ?;", (queue_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Queue record ID {queue_id} does not exist.")
+
+        if row["claim_token"] != claim_token or row["sync_status"] != "in_progress" or (row["lease_expires_at"] and row["lease_expires_at"] < now_utc):
+            logger.warning("move_to_dead_letter rejected for queue_id=%d: stale worker claim.", queue_id)
+            return {
+                "success": False,
+                "queue_id": queue_id,
+                "claim_lost": True,
+                "sync_status": row["sync_status"],
+                "message": "Ownership lost or lease expired: stale worker dead-letter transition rejected."
+            }
+
         cursor.execute(
             """
             UPDATE sheets_sync_queue
@@ -581,22 +746,68 @@ def move_to_dead_letter(
                 lease_expires_at = NULL,
                 last_error = ?,
                 updated_at = ?
-            WHERE id = ?;
+            WHERE id = ?
+              AND claim_token = ?
+              AND sync_status = 'in_progress'
+              AND lease_expires_at >= ?;
             """,
-            (sanitized_error, now_utc, queue_id)
+            (sanitized_error, now_utc, queue_id, claim_token, now_utc)
         )
-        conn.commit()
+        if cursor.rowcount != 1:
+            return {
+                "success": False,
+                "queue_id": queue_id,
+                "claim_lost": True,
+                "message": "Ownership lost during dead-letter transition."
+            }
+
         return {
+            "success": True,
             "queue_id": queue_id,
             "sync_status": "dead_letter",
             "permanent_failure": True,
             "last_error": sanitized_error
         }
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
+
+
+def release_claim(
+    queue_id: int,
+    claim_token: int,
+    now_dt: Optional[datetime] = None,
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
+) -> bool:
+    """
+    Fenced transition: safely releases an active worker claim back to 'pending' state.
+    Requires matching queue_id, active claim_token, sync_status = 'in_progress', and valid lease.
+    Rejects stale workers attempting to release a claim they no longer own.
+
+    :param queue_id: Primary key of sheets_sync_queue row.
+    :param claim_token: Current active ownership token held by worker.
+    :param now_dt: Optional datetime.
+    :param db_path: Optional SQLite database path.
+    :param conn: Optional existing SQLite connection.
+    :return: True if claim was released; False if ownership was lost or lease expired.
+    """
+    _validate_queue_and_token(queue_id, claim_token)
+    _, now_utc = _get_utc_now(now_dt)
+
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
+        cursor.execute(
+            """
+            UPDATE sheets_sync_queue
+            SET sync_status = 'pending',
+                lease_expires_at = NULL,
+                updated_at = ?
+            WHERE id = ?
+              AND claim_token = ?
+              AND sync_status = 'in_progress'
+              AND lease_expires_at >= ?;
+            """,
+            (now_utc, queue_id, claim_token, now_utc)
+        )
+        return cursor.rowcount == 1
 
 
 def get_dead_letter_records(
@@ -607,26 +818,18 @@ def get_dead_letter_records(
     """
     Retrieves dead-letter queue records with joined attendance, student,
     and class session information for administrative review and recovery.
-    Categorizes errors into actionable categories:
-    - 'exhausted_retries' (records that exceeded max retry limit)
-    - 'permission_or_auth' (HTTP 401/403 or permission denial)
-    - 'not_found' (HTTP 404 or missing spreadsheet)
-    - 'permanent_failure' (explicitly permanent failures or schema violations)
-
-    :param limit: Maximum records to return.
-    :param offset: Pagination offset.
-    :param db_path: Optional SQLite database path.
-    :return: List of dead-letter record dictionaries.
     """
     conn = _get_active_db_connection(db_path)
     try:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 q.id AS queue_id,
                 q.attendance_id,
                 q.sync_status,
+                q.claim_token,
+                q.sheet_row_number,
                 q.retry_count,
                 q.last_error,
                 q.created_at AS queue_created_at,
@@ -674,29 +877,29 @@ def retry_dead_letter_records(
     queue_ids: Optional[list[int]] = None,
     reset_retries: bool = True,
     now_dt: Optional[datetime] = None,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    conn: Optional[sqlite3.Connection] = None
 ) -> dict:
     """
-    Safely requeues dead-letter records back to 'pending' state for re-synchronization.
-    Allows administrators to retry all dead-letter records or a targeted subset by ID.
-    Authoritative SQLite attendance records are never modified or deleted.
+    Administrative requeue: safely requeues dead-letter records back to 'pending' state.
+    Only operates on records currently in 'dead_letter' status.
+    Atomically increments claim_token to invalidate any prior worker claim generation.
+    Preserves sheet_row_number and authorative attendance records permanently.
 
     :param queue_ids: Optional list of specific queue IDs to retry. If None or empty, retries all dead-letter items.
-    :param reset_retries: If True, resets retry_count to 0 so the record has a clean retry cycle.
+    :param reset_retries: If True, resets retry_count to 0.
     :param now_dt: Optional datetime for deterministic testing.
     :param db_path: Optional SQLite database path.
+    :param conn: Optional existing SQLite connection.
     :return: Dictionary with requeued_count and list of requeued_ids.
     """
     _, now_utc = _get_utc_now(now_dt)
 
-    conn = _get_active_db_connection(db_path)
-    try:
-        conn.execute("BEGIN IMMEDIATE;")
-        cursor = conn.cursor()
+    with _managed_transaction(db_path=db_path, conn=conn) as active_conn:
+        cursor = active_conn.cursor()
 
         if queue_ids is not None:
             if not queue_ids:
-                conn.commit()
                 return {
                     "success": True,
                     "requeued_count": 0,
@@ -721,7 +924,6 @@ def retry_dead_letter_records(
             target_ids = [row["id"] for row in cursor.fetchall()]
 
         if not target_ids:
-            conn.commit()
             return {
                 "success": True,
                 "requeued_count": 0,
@@ -734,11 +936,13 @@ def retry_dead_letter_records(
                 f"""
                 UPDATE sheets_sync_queue
                 SET sync_status = 'pending',
+                    claim_token = claim_token + 1,
                     retry_count = 0,
                     next_retry_at = NULL,
                     lease_expires_at = NULL,
                     updated_at = ?
-                WHERE id IN ({target_placeholders});
+                WHERE id IN ({target_placeholders})
+                  AND sync_status = 'dead_letter';
                 """,
                 [now_utc] + target_ids
             )
@@ -747,23 +951,18 @@ def retry_dead_letter_records(
                 f"""
                 UPDATE sheets_sync_queue
                 SET sync_status = 'pending',
+                    claim_token = claim_token + 1,
                     next_retry_at = NULL,
                     lease_expires_at = NULL,
                     updated_at = ?
-                WHERE id IN ({target_placeholders});
+                WHERE id IN ({target_placeholders})
+                  AND sync_status = 'dead_letter';
                 """,
                 [now_utc] + target_ids
             )
 
-        conn.commit()
         return {
             "success": True,
             "requeued_count": len(target_ids),
             "requeued_ids": target_ids
         }
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        close_db_connection(conn)
-

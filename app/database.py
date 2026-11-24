@@ -5,6 +5,7 @@ Supports standalone usage and Flask application context lifecycle (g.db).
 """
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 from app.config import get_config
@@ -13,6 +14,7 @@ from app.models import (
     CREATE_INDEXES_SQL,
     CREATE_SHEETS_SYNC_QUEUE_SQL,
     CREATE_SHEETS_SYNC_QUEUE_INDEXES_SQL,
+    CREATE_SHEETS_SYNC_META_SQL,
 )
 
 
@@ -87,6 +89,117 @@ def close_db(e=None) -> None:
         pass
 
 
+def backfill_historical_rows(conn: sqlite3.Connection) -> dict:
+    """
+    Safely backfills historical spreadsheet row numbers for verified baseline synthetic records:
+    - Attendance ID 1 (MANUAL-001) -> Row 3
+    - Attendance ID 2 (MANUAL-002) -> Row 4
+    - sheets_sync_meta.next_sheet_row -> at least 5
+
+    Safety Rules:
+    1. Verify target attendance ID exists and matches expected roll number.
+    2. Detect pre-existing conflicting row assignments.
+    3. Detect duplicate assignment attempts.
+    4. Do not overwrite a conflicting non-NULL assignment.
+    5. Preserves existing attendance rows and queue statuses.
+    """
+    cursor = conn.cursor()
+    verified_mappings = [
+        (1, "MANUAL-001", 3),
+        (2, "MANUAL-002", 4),
+    ]
+
+    results = {"backfilled": [], "already_assigned": [], "skipped": [], "conflicts": []}
+    now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    for att_id, expected_roll, target_row in verified_mappings:
+        # 1. Verify attendance record exists and roll number matches
+        cursor.execute(
+            """
+            SELECT a.id, s.roll_number
+            FROM attendance a
+            JOIN students s ON a.student_id = s.id
+            WHERE a.id = ?;
+            """,
+            (att_id,)
+        )
+        att_row = cursor.fetchone()
+        if not att_row:
+            results["skipped"].append((att_id, "attendance_id_not_found"))
+            continue
+
+        roll_num = att_row["roll_number"] if hasattr(att_row, "keys") else att_row[1]
+        if roll_num != expected_roll:
+            results["skipped"].append((att_id, f"roll_number_mismatch_{roll_num}_vs_{expected_roll}"))
+            continue
+
+        # 2. Check sheets_sync_queue for this attendance_id
+        cursor.execute(
+            "SELECT id, sheet_row_number FROM sheets_sync_queue WHERE attendance_id = ?;",
+            (att_id,)
+        )
+        q_row = cursor.fetchone()
+        if not q_row:
+            results["skipped"].append((att_id, "queue_record_not_found"))
+            continue
+
+        current_row = q_row["sheet_row_number"] if hasattr(q_row, "keys") else q_row[1]
+        q_id = q_row["id"] if hasattr(q_row, "keys") else q_row[0]
+
+        if current_row == target_row:
+            results["already_assigned"].append((att_id, target_row))
+            continue
+        elif current_row is not None and current_row != target_row:
+            conflict_msg = f"Queue ID {q_id} (attendance_id {att_id}) already assigned row {current_row}, conflicting with target {target_row}"
+            results["conflicts"].append((att_id, conflict_msg))
+            raise RuntimeError(f"Historical backfill conflict: {conflict_msg}")
+
+        # 3. Check if target_row is already assigned to a DIFFERENT queue record
+        cursor.execute(
+            "SELECT id, attendance_id FROM sheets_sync_queue WHERE sheet_row_number = ?;",
+            (target_row,)
+        )
+        owner_row = cursor.fetchone()
+        if owner_row:
+            other_att = owner_row["attendance_id"] if hasattr(owner_row, "keys") else owner_row[1]
+            conflict_msg = f"Target row {target_row} already claimed by attendance_id {other_att} (expected {att_id})"
+            results["conflicts"].append((att_id, conflict_msg))
+            raise RuntimeError(f"Historical backfill conflict: {conflict_msg}")
+
+        # 4. Safe update
+        cursor.execute(
+            """
+            UPDATE sheets_sync_queue
+            SET sheet_row_number = ?, updated_at = ?
+            WHERE attendance_id = ? AND sheet_row_number IS NULL;
+            """,
+            (target_row, now_utc, att_id)
+        )
+        results["backfilled"].append((att_id, target_row))
+
+    # 5. Ensure sheets_sync_meta next_sheet_row is at least 5
+    cursor.execute("SELECT next_sheet_row FROM sheets_sync_meta WHERE id = 1;")
+    meta_row = cursor.fetchone()
+    if meta_row:
+        curr_next = meta_row["next_sheet_row"] if hasattr(meta_row, "keys") else meta_row[0]
+        if curr_next < 5:
+            cursor.execute(
+                "UPDATE sheets_sync_meta SET next_sheet_row = 5, updated_at = ? WHERE id = 1;",
+                (now_utc,)
+            )
+    else:
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO sheets_sync_meta (id, next_sheet_row, created_at, updated_at)
+            VALUES (1, 5, ?, ?);
+            """,
+            (now_utc, now_utc)
+        )
+
+    conn.commit()
+    return results
+
+
 def migrate_db(conn: sqlite3.Connection) -> None:
     """
     Safely applies schema migrations for existing databases.
@@ -107,6 +220,55 @@ def migrate_db(conn: sqlite3.Connection) -> None:
             cursor.executescript(CREATE_SHEETS_SYNC_QUEUE_SQL)
             cursor.executescript(CREATE_SHEETS_SYNC_QUEUE_INDEXES_SQL)
             conn.commit()
+
+        # 3. Forward migration: sheets_sync_queue columns (Phase 3 Milestone 5 - Stage 9.7B.13F)
+        cursor.execute("PRAGMA table_info(sheets_sync_queue);")
+        queue_columns = [row["name"] if hasattr(row, "keys") else row[1] for row in cursor.fetchall()]
+        if queue_columns:
+            if "sheet_row_number" not in queue_columns:
+                cursor.execute("ALTER TABLE sheets_sync_queue ADD COLUMN sheet_row_number INTEGER;")
+            if "claim_token" not in queue_columns:
+                cursor.execute("ALTER TABLE sheets_sync_queue ADD COLUMN claim_token INTEGER NOT NULL DEFAULT 0;")
+
+            cursor.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_sheets_sync_queue_sheet_row_number
+                ON sheets_sync_queue(sheet_row_number)
+                WHERE sheet_row_number IS NOT NULL;
+                """
+            )
+            conn.commit()
+
+        # 4. Forward migration: sheets_sync_meta table (Phase 3 Milestone 5 - Stage 9.7B.13F)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='sheets_sync_meta';")
+        if not cursor.fetchone():
+            cursor.execute(CREATE_SHEETS_SYNC_META_SQL)
+            now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO sheets_sync_meta (id, next_sheet_row, created_at, updated_at)
+                VALUES (1, 5, ?, ?);
+                """,
+                (now_utc, now_utc)
+            )
+            conn.commit()
+        else:
+            # Table exists; ensure singleton row 1 exists
+            cursor.execute("SELECT id FROM sheets_sync_meta WHERE id = 1;")
+            if not cursor.fetchone():
+                now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO sheets_sync_meta (id, next_sheet_row, created_at, updated_at)
+                    VALUES (1, 5, ?, ?);
+                    """,
+                    (now_utc, now_utc)
+                )
+                conn.commit()
+
+        # 5. Historical row backfill for verified baseline records
+        backfill_historical_rows(conn)
+
     except sqlite3.Error as e:
         conn.rollback()
         raise RuntimeError(f"Database migration failed: {e}") from e
@@ -126,13 +288,14 @@ def init_db(db_path: Optional[Union[str, Path]] = None) -> None:
     conn = get_db_connection(db_path)
     try:
         cursor = conn.cursor()
-        # Execute table creation scripts (using executescript for multiple statements)
+        # 1. Execute table creation scripts (using executescript for multiple statements)
         cursor.executescript(CREATE_TABLES_SQL)
-        # Execute index creation scripts
+        conn.commit()
+        # 2. Apply forward schema migrations (ensuring all new columns and tables exist)
+        migrate_db(conn)
+        # 3. Execute index creation scripts
         cursor.executescript(CREATE_INDEXES_SQL)
         conn.commit()
-        # Apply forward schema migrations
-        migrate_db(conn)
     except sqlite3.Error as e:
         conn.rollback()
         raise RuntimeError(f"Database initialization failed: {e}") from e

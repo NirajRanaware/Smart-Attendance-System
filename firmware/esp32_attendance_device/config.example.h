@@ -59,11 +59,11 @@
 // - SCK:  GPIO 18
 // - MISO: GPIO 19
 // - MOSI: GPIO 23
-// - SDA:  GPIO 5  (Chip Select / SS)
+// - SDA:  GPIO 27 (Chip Select / SS - avoids GPIO5 bootstrapping and boot glitches)
 // - RST:  GPIO 4  (Reset pin)
 // - VCC:  3.3V    (DO NOT connect to 5V! RC522 is a 3.3V device)
 // - GND:  GND
-#define RFID_SS_PIN           5                      ///< RC522 Chip Select (SDA/SS)
+#define RFID_SS_PIN           27                     ///< RC522 Chip Select (SDA/SS)
 #define RFID_RST_PIN          4                      ///< RC522 Reset (RST)
 #define RFID_SCK_PIN          18                     ///< SPI Clock (SCK)
 #define RFID_MISO_PIN         19                     ///< SPI Master-In-Slave-Out (MISO)
